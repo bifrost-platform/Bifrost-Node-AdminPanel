@@ -272,6 +272,23 @@ class WalletConnector {
             await tx.wait();
             console.log('Transaction confirmed');
             alert('Transaction completed!');
+            
+            this.bondingButton.disabled = true;
+            this.bondingAmount.disabled = true;
+            this.relayer.disabled = true;
+            this.controller.disabled = true;
+
+            this.additionalAmount.disabled = false;
+            this.bondMoreButton.disabled = false;
+
+            const states = await contract.candidate_states(0);
+            const candidates = states[1].map(addr => addr.toLowerCase());
+
+            const stakeAmounts = states[2][candidates.indexOf(this.account.toLowerCase())];
+
+            this.validationStatus.textContent = `[Stake amount: ${stakeAmounts}]`;
+            this.validationStatus.classList.remove('invalid');
+            this.validationStatus.classList.add('valid');
 
         } catch (error) {
             console.error('Transaction failed:', error);
@@ -383,34 +400,40 @@ class WalletConnector {
                     
                     try {
                         const states = await contract.candidate_states(0);
-                        const candidates = states[1];
+                        const candidates = states[1].map(addr => addr.toLowerCase());
 
-                        const isValid = candidates.map(addr => addr.toLowerCase())
-                            .includes(this.account.toLowerCase());
+                        const isValid = candidates.includes(this.account.toLowerCase());
 
                         if (isValid) {
-                            this.validationStatus.textContent = '[Valid Candidate]';
+                            const stakeAmounts = states[2][candidates.indexOf(this.account.toLowerCase())];
+
+                            this.validationStatus.textContent = `[Stake amount: ${stakeAmounts}]`;
                             this.validationStatus.classList.remove('invalid');
                             this.validationStatus.classList.add('valid');
                         } else {
-                            this.validationStatus.textContent = '[Invalid Candidate]';
+                            this.validationStatus.textContent = '[Stake amount: 0]';
                             this.validationStatus.classList.remove('valid');
                             this.validationStatus.classList.add('invalid');
                         }
                         this.validationStatus.style.display = 'inline';
 
                         if (isValid) {
+                            this.bondingButton.disabled = true;
+                            this.bondingAmount.disabled = true;
+                            this.relayer.disabled = true;
+                            this.controller.disabled = true;
                             this.additionalAmount.disabled = false;
                             this.bondMoreButton.disabled = false;
                         } else {
+                            this.bondingButton.disabled = false;
+                            this.bondingAmount.disabled = false;
+                            this.relayer.disabled = false;
+                            this.controller.disabled = false;
                             this.additionalAmount.disabled = true;
                             this.bondMoreButton.disabled = true;
                         }
 
-                        this.bondingButton.disabled = false;
-                        this.bondingAmount.disabled = false;
-                        this.relayer.disabled = false;
-                        this.controller.disabled = false;
+                        
                     } catch (error) {
                         console.error('Failed to check candidate states:', error);
                     }
