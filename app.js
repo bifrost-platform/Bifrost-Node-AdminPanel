@@ -117,6 +117,8 @@ class WalletConnector {
             blockExplorerUrls: ['https://explorer.mainnet.bifrostnetwork.com/']
         };
         
+        this.logMessages = null;
+        
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
         } else {
@@ -142,6 +144,7 @@ class WalletConnector {
         this.bondMoreButton = document.getElementById('bondMoreButton');
         this.addMainnetButton = document.getElementById('addMainnetButton');
         this.switchMainnetButton = document.getElementById('switchMainnetButton');
+        this.logMessages = document.getElementById('logMessages');
 
         await this.checkMetaMaskInstallation();
         
@@ -231,6 +234,41 @@ class WalletConnector {
         this.connectButton.classList.remove('hidden');
     }
 
+    getExplorerUrl(hash) {
+        const chainId = window.ethereum.chainId;
+        let baseUrl;
+        
+        if (chainId === '0xbfc') {
+            baseUrl = 'https://explorer.mainnet.bifrostnetwork.com/tx/';
+        } else if (chainId === '0xbfc0') {
+            baseUrl = 'https://explorer.testnet.bifrostnetwork.com/tx/';
+        } else {
+            return null;
+        }
+        
+        return baseUrl + hash;
+    }
+
+    addLog(message, isError = false, hash = null) {
+        const logEntry = document.createElement('div');
+        
+        if (hash) {
+            const explorerUrl = this.getExplorerUrl(hash);
+            if (explorerUrl) {
+                logEntry.innerHTML = `${new Date().toLocaleTimeString()}: ${message} <a href="${explorerUrl}" target="_blank">${hash}</a>`;
+            } else {
+                logEntry.textContent = `${new Date().toLocaleTimeString()}: ${message} ${hash}`;
+            }
+        } else {
+            logEntry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+        }
+        
+        logEntry.style.color = isError ? 'red' : 'green';
+        this.logMessages.appendChild(logEntry);
+        this.logMessages.scrollTop = this.logMessages.scrollHeight;
+        this.logMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
     async handleTransaction() {
         try {
             const controller = document.getElementById('controller').value;
@@ -266,12 +304,15 @@ class WalletConnector {
                 candidateCount
             );
 
-            console.log('Transaction sent:', tx.hash);
-            alert('Transaction sent. Please wait for processing.');
+            this.addLog('Transaction sent:', false, tx.hash);
 
             await tx.wait();
-            console.log('Transaction confirmed');
-            alert('Transaction completed!');
+            this.addLog('Transaction confirmed!');
+
+            this.additionalAmount.value = '';
+            this.bondingAmount.value = '';
+            this.relayer.value = '';
+            this.controller.value = '';
             
             this.bondingButton.disabled = true;
             this.bondingAmount.disabled = true;
@@ -292,7 +333,7 @@ class WalletConnector {
 
         } catch (error) {
             console.error('Transaction failed:', error);
-            alert('Transaction failed: ' + error.message);
+            this.addLog('Transaction failed: ' + error.message, true);
         }
     }
 
@@ -313,16 +354,14 @@ class WalletConnector {
 
             const tx = await contract.candidate_bond_more(amountInWei);
 
-            console.log('Transaction sent:', tx.hash);
-            alert('Transaction sent. Please wait for processing.');
+            this.addLog('Bond more transaction sent:', false, tx.hash);
 
             await tx.wait();
-            console.log('Transaction confirmed');
-            alert('Bond more transaction completed!');
+            this.addLog('Bond more transaction confirmed!');
 
         } catch (error) {
             console.error('Bond more transaction failed:', error);
-            alert('Transaction failed: ' + error.message);
+            this.addLog('Bond more transaction failed: ' + error.message, true);
         }
     }
 
@@ -382,7 +421,15 @@ class WalletConnector {
         if (window.ethereum) {
             try {
                 const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-                this.networkName.textContent = chainId;
+                let networkDisplayName;
+                if (chainId === '0xbfc') {
+                    networkDisplayName = 'Bifrost Mainnet';
+                } else if (chainId === '0xbfc0') {
+                    networkDisplayName = 'Bifrost Testnet';
+                } else {
+                    networkDisplayName = chainId;
+                }
+                this.networkName.textContent = networkDisplayName;
 
                 this.validationStatus.textContent = '';
                 this.validationStatus.style.display = 'none';
@@ -412,8 +459,8 @@ class WalletConnector {
                             this.validationStatus.classList.add('valid');
                         } else {
                             this.validationStatus.textContent = '[Stake amount: 0]';
-                            this.validationStatus.classList.remove('valid');
-                            this.validationStatus.classList.add('invalid');
+                            this.validationStatus.classList.remove('invalid');
+                            this.validationStatus.classList.add('valid');
                         }
                         this.validationStatus.style.display = 'inline';
 
@@ -437,6 +484,11 @@ class WalletConnector {
                     } catch (error) {
                         console.error('Failed to check candidate states:', error);
                     }
+                } else {
+                    this.validationStatus.textContent = '[Not on Bifrost]';
+                    this.validationStatus.classList.remove('valid');
+                    this.validationStatus.classList.add('invalid');
+                    this.validationStatus.style.display = 'inline';
                 }
             } catch (error) {
                 console.error('Failed to get network information:', error);

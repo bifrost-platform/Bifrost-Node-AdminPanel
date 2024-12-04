@@ -42,7 +42,32 @@
         
         #validationStatus.invalid {
             font-weight: bold;
-            color: #4CAF50;
+            color: #f44336;
+        }
+
+        #transactionLogs {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #logMessages div {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+
+        #logMessages div a {
+            color: #2196F3;
+            text-decoration: none;
+            margin-left: 5px;
+        }
+
+        #logMessages div a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -72,18 +97,23 @@
                 <input type="string" id="controller" disabled>
                 <div>Relayer Address</div>
                 <input type="string" id="relayer" disabled>
-                <div>Amount</div>
+                <div>Amount (Unit: BFC)</div>
                 <input type="number" id="bondingAmount" disabled>
                 <button id="bondingButton" disabled>Bond</button>
             </div>
             
             <div id="bondMoreSection">
                 <h3>Bond More</h3>
-                <div>Additional Amount</div>
+                <div>Additional Amount (Unit: BFC)</div>
                 <input type="number" id="additionalAmount" disabled>
                 <button id="bondMoreButton" disabled>Bond More</button>
             </div>
         </div>
+    </div>
+
+    <div id="transactionLogs">
+        <h3>Transaction Logs</h3>
+        <div id="logMessages"></div>
     </div>
 
     <script src="dist/bundle.js"></script>
