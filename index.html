@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bifrost bonding</title>
+    <style>
+        .hidden {
+            display: none;
+        }
+        #amount {
+            margin: 10px 0;
+        }
+
+        #metamaskStatus {
+            border: 2px solid #ccc;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+
+        #metamaskStatus.installed {
+            border-color: #4CAF50;
+        }
+
+        #metamaskStatus.not-installed {
+            border-color: #f44336;
+        }
+        #networkButtons {
+            margin-bottom: 20px;
+        }
+        #transactionSection {
+            margin-top: 20px;
+        }
+        #validationStatus {
+            font-weight: bold;
+            color: #ff5722;
+        }
+        #validationStatus.valid {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        #validationStatus.invalid {
+            font-weight: bold;
+            color: #ff5722;
+        }
+    </style>
+</head>
+<body>
+    <div id="metamaskStatus">
+        <p>Checking MetaMask...</p>
+    </div>
+    <div id="currentNetwork" style="margin-top: 10px;">
+        Current Network: <span id="networkName">Not Connected</span>
+    </div>
+
+    <div id="walletSection" class="hidden">
+        <button id="connectButton">Connect Wallet</button>
+        <div id="walletInfo" class="hidden">
+            <span>Connected Wallet: </span>
+            <span id="accountAddress"></span>
+            <span id="validationStatus"></span>
+            <div id="networkButtons">
+                <button id="addNetworkButton">Add Bifrost Testnet</button>
+                <button id="switchNetworkButton">Switch to Bifrost Testnet</button>
+            </div>
+            <div id="bondingSection">
+                <h3>Bonding</h3>
+                <div>Controller Address</div>
+                <input type="string" id="controller" disabled>
+                <div>Relayer Address</div>
+                <input type="string" id="relayer" disabled>
+                <div>Amount</div>
+                <input type="number" id="bondingAmount" disabled>
+                <button id="bondingButton" disabled>Send</button>
+            </div>
+            
+            <div id="bondMoreSection">
+                <h3>Bond More</h3>
+                <div>Additional Amount</div>
+                <input type="number" id="additionalAmount" disabled>
+                <button id="bondMoreButton" disabled>Bond More</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="dist/bundle.js"></script>
+</body>
+</html> 

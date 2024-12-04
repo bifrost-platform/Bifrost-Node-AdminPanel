@@ -1,0 +1,15 @@
+{
+  "name": "bifrost-bonding",
+  "version": "1.0.0",
+  "description": "Bifrost bonding",
+  "scripts": {
+    "start": "webpack serve"
+  },
+  "author": "Bifrost",
+  "dependencies": {
+    "ethers": "^6.13.4",
+    "webpack": "^5.97.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.1.0"
+  }
+}

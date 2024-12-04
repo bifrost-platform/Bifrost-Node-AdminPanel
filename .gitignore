@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Build Output
+/dist
+/build
+/out
+
+# Log Files
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE and Editor Settings
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Cache Directories
+.cache/
+.next/
+.nuxt/
+.temp/
+
+# Test Coverage
+coverage/
+
+# Temporary Files
+*.tmp
+*.temp 
