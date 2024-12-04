@@ -105,6 +105,18 @@ class WalletConnector {
             blockExplorerUrls: ['https://explorer.testnet.bifrostnetwork.com/']
         };
         
+        this.mainnetConfig = {
+            chainId: '0xBFC',
+            chainName: 'Bifrost Mainnet',
+            rpcUrls: ['https://public-01.mainnet.bifrostnetwork.com/rpc'],
+            nativeCurrency: {
+                name: 'BFC',
+                symbol: 'BFC',
+                decimals: 18
+            },
+            blockExplorerUrls: ['https://explorer.mainnet.bifrostnetwork.com/']
+        };
+        
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
         } else {
@@ -128,6 +140,8 @@ class WalletConnector {
         this.validationStatus = document.getElementById('validationStatus');
         this.additionalAmount = document.getElementById('additionalAmount');
         this.bondMoreButton = document.getElementById('bondMoreButton');
+        this.addMainnetButton = document.getElementById('addMainnetButton');
+        this.switchMainnetButton = document.getElementById('switchMainnetButton');
 
         await this.checkMetaMaskInstallation();
         
@@ -139,6 +153,12 @@ class WalletConnector {
         }
         if (this.switchNetworkButton) {
             this.switchNetworkButton.addEventListener('click', () => this.switchNetwork());
+        }
+        if (this.addMainnetButton) {
+            this.addMainnetButton.addEventListener('click', () => this.addMainnet());
+        }
+        if (this.switchMainnetButton) {
+            this.switchMainnetButton.addEventListener('click', () => this.switchMainnet());
         }
 
         await initContract();
@@ -315,6 +335,32 @@ class WalletConnector {
         }
     }
 
+    async addMainnet() {
+        try {
+            await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [this.mainnetConfig],
+            });
+            alert('Bifrost Mainnet has been successfully added!');
+        } catch (error) {
+            console.error('Failed to add mainnet:', error);
+            alert('Failed to add mainnet.');
+        }
+    }
+
+    async switchMainnet() {
+        try {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: this.mainnetConfig.chainId }],
+            });
+            alert('Switched to Bifrost Mainnet!');
+        } catch (error) {
+            console.error('Failed to switch network:', error);
+            alert('Failed to switch network.');
+        }
+    }
+
     async updateCurrentNetwork() {
         if (window.ethereum) {
             try {
@@ -324,12 +370,13 @@ class WalletConnector {
                 this.validationStatus.textContent = '';
                 this.validationStatus.style.display = 'none';
                 
+                this.additionalAmount.value = '';
                 this.bondingAmount.value = '';
                 this.relayer.value = '';
                 this.controller.value = '';
                 this.bondingButton.disabled = !this.bondingAmount.value;
 
-                if (chainId === '0xbfc0' && this.account) {
+                if ((chainId === '0xbfc0' || chainId === '0xbfc') && this.account) {
                     if (!contract) {
                         await initContract();
                     }
@@ -353,20 +400,17 @@ class WalletConnector {
                         this.validationStatus.style.display = 'inline';
 
                         if (isValid) {
-                            this.bondingButton.disabled = false;
-                            this.bondingAmount.disabled = false;
-                            this.relayer.disabled = false;
-                            this.controller.disabled = false;
                             this.additionalAmount.disabled = false;
                             this.bondMoreButton.disabled = false;
                         } else {
-                            this.bondingButton.disabled = true;
-                            this.bondingAmount.disabled = true;
-                            this.relayer.disabled = true;
-                            this.controller.disabled = true;
                             this.additionalAmount.disabled = true;
                             this.bondMoreButton.disabled = true;
                         }
+
+                        this.bondingButton.disabled = false;
+                        this.bondingAmount.disabled = false;
+                        this.relayer.disabled = false;
+                        this.controller.disabled = false;
                     } catch (error) {
                         console.error('Failed to check candidate states:', error);
                     }

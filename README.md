@@ -1,6 +1,6 @@
-# Bifrost Bonding DApp
+# Admin Panel DApp
 
-A decentralized application for interacting with Bifrost Network's bonding functionality. This DApp allows users to connect their MetaMask wallet, bond BFC, and manage their candidate status on the Bifrost.
+A decentralized application for interacting with Bifrost Network's bonding functionality. This DApp allows node operators to connect their MetaMask wallet, bond BFC, and manage their candidate status on the Bifrost.
 
 ## Features
 
@@ -14,7 +14,7 @@ A decentralized application for interacting with Bifrost Network's bonding funct
 
 - Node.js (>= 14.15.0)
 - MetaMask browser extension
-- Access to Bifrost Testnet
+- Access to Bifrost Testnet & Mainnet
 
 ## Installation
 
@@ -25,13 +25,7 @@ A decentralized application for interacting with Bifrost Network's bonding funct
 npm install
 ```
 
-2. Build the project:
-
-```bash
-npm run build
-```
-
-3. Start the server:
+2. Start the server:
 
 ```bash
 npm start
@@ -49,10 +43,17 @@ Bifrost Testnet details:
 - Currency Symbol: BFC
 - Explorer: https://explorer.testnet.bifrostnetwork.com/
 
+Bifrost Mainnet details:
+- Chain ID: 0xBFC
+- Network Name: Bifrost Mainnet
+- RPC URL: https://public-01.mainnet.bifrostnetwork.com/rpc
+- Currency Symbol: BFC
+- Explorer: https://explorer.mainnet.bifrostnetwork.com/
+
 ## Usage
 
 1. Connect your MetaMask wallet
-2. Add or switch to Bifrost Testnet
+2. Add or switch to Bifrost Testnet or Mainnet
 3. Check your candidate validation status
 4. Enter bonding details:
    - Controller address
