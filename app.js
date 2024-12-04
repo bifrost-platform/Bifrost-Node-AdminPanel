@@ -272,12 +272,12 @@ class WalletConnector {
     async handleTransaction() {
         try {
             const controller = document.getElementById('controller').value;
-            const relayer = document.getElementById('relayer').value;
+            let relayer = document.getElementById('relayer').value;
             const amount = document.getElementById('bondingAmount').value;
             const candidateCount = 1000;
 
-            if (!controller || !relayer || !amount) {
-                alert('Please fill in all fields.');
+            if (!controller || !amount) {
+                alert('Please fill in controller and bonding amount fields.');
                 return;
             }
 
@@ -287,8 +287,7 @@ class WalletConnector {
             }
 
             if (!ethers.isAddress(relayer)) {
-                alert('Invalid relayer address.');
-                return;
+                relayer = ethers.ZeroAddress;
             }
 
             if (!contract) {
@@ -304,20 +303,15 @@ class WalletConnector {
                 candidateCount
             );
 
-            this.addLog('Transaction sent:', false, tx.hash);
+            this.addLog('Transaction sent:', false, tx.hash, '\nPlease wait for confirmation...');
 
-            await tx.wait();
-            this.addLog('Transaction confirmed!');
-
-            this.additionalAmount.value = '';
-            this.bondingAmount.value = '';
-            this.relayer.value = '';
-            this.controller.value = '';
-            
             this.bondingButton.disabled = true;
             this.bondingAmount.disabled = true;
             this.relayer.disabled = true;
             this.controller.disabled = true;
+
+            await tx.wait();
+            this.addLog('Transaction confirmed!');
 
             this.additionalAmount.disabled = false;
             this.bondMoreButton.disabled = false;
@@ -326,14 +320,19 @@ class WalletConnector {
             const candidates = states[1].map(addr => addr.toLowerCase());
 
             const stakeAmounts = states[2][candidates.indexOf(this.account.toLowerCase())];
-
-            this.validationStatus.textContent = `[Stake amount: ${stakeAmounts}]`;
+            const formattedAmount = ethers.formatEther(stakeAmounts);
+            this.validationStatus.textContent = `[Stake amount: ${formattedAmount} BFC]`;
             this.validationStatus.classList.remove('invalid');
             this.validationStatus.classList.add('valid');
 
         } catch (error) {
             console.error('Transaction failed:', error);
             this.addLog('Transaction failed: ' + error.message, true);
+
+            this.bondingButton.disabled = false;
+            this.bondingAmount.disabled = false;
+            this.relayer.disabled = false;
+            this.controller.disabled = false;
         }
     }
 
@@ -354,10 +353,19 @@ class WalletConnector {
 
             const tx = await contract.candidate_bond_more(amountInWei);
 
-            this.addLog('Bond more transaction sent:', false, tx.hash);
+            this.addLog('Bond more transaction sent:', false, tx.hash, '\nPlease wait for confirmation...');
 
             await tx.wait();
             this.addLog('Bond more transaction confirmed!');
+            
+            const states = await contract.candidate_states(0);
+            const candidates = states[1].map(addr => addr.toLowerCase());
+
+            const stakeAmounts = states[2][candidates.indexOf(this.account.toLowerCase())];
+            const formattedAmount = ethers.formatEther(stakeAmounts);
+            this.validationStatus.textContent = `[Stake amount: ${formattedAmount} BFC]`;
+            this.validationStatus.classList.remove('invalid');
+            this.validationStatus.classList.add('valid');
 
         } catch (error) {
             console.error('Bond more transaction failed:', error);
@@ -453,12 +461,12 @@ class WalletConnector {
 
                         if (isValid) {
                             const stakeAmounts = states[2][candidates.indexOf(this.account.toLowerCase())];
-
-                            this.validationStatus.textContent = `[Stake amount: ${stakeAmounts}]`;
+                            const formattedAmount = ethers.formatEther(stakeAmounts);
+                            this.validationStatus.textContent = `[Stake amount: ${formattedAmount} BFC]`;
                             this.validationStatus.classList.remove('invalid');
                             this.validationStatus.classList.add('valid');
                         } else {
-                            this.validationStatus.textContent = '[Stake amount: 0]';
+                            this.validationStatus.textContent = '[Stake amount: 0 BFC]';
                             this.validationStatus.classList.remove('invalid');
                             this.validationStatus.classList.add('valid');
                         }
