@@ -145,6 +145,7 @@ class WalletConnector {
         this.addMainnetButton = document.getElementById('addMainnetButton');
         this.switchMainnetButton = document.getElementById('switchMainnetButton');
         this.logMessages = document.getElementById('logMessages');
+        this.disconnectButton = document.getElementById('disconnectButton');
 
         await this.checkMetaMaskInstallation();
         
@@ -162,6 +163,9 @@ class WalletConnector {
         }
         if (this.switchMainnetButton) {
             this.switchMainnetButton.addEventListener('click', () => this.switchMainnet());
+        }
+        if (this.disconnectButton) {
+            this.disconnectButton.addEventListener('click', () => this.disconnectWallet());
         }
 
         await initContract();
@@ -203,6 +207,7 @@ class WalletConnector {
             const accounts = await window.ethereum.request({
                 method: 'eth_requestAccounts'
             });
+
             this.account = accounts[0];
             this.accountAddress.textContent = this.account;
             this.walletInfo.classList.remove('hidden');
@@ -232,6 +237,26 @@ class WalletConnector {
         this.accountAddress.textContent = '';
         this.walletInfo.classList.add('hidden');
         this.connectButton.classList.remove('hidden');
+        
+        // Reset form fields
+        this.bondingAmount.value = '';
+        this.relayer.value = '';
+        this.controller.value = '';
+        this.additionalAmount.value = '';
+        
+        // Reset validation status
+        this.validationStatus.textContent = '';
+        this.validationStatus.style.display = 'none';
+        
+        // Disable all transaction buttons
+        this.bondingButton.disabled = true;
+        this.bondingAmount.disabled = true;
+        this.relayer.disabled = true;
+        this.controller.disabled = true;
+        this.additionalAmount.disabled = true;
+        this.bondMoreButton.disabled = true;
+        
+        this.addLog('Wallet disconnected');
     }
 
     getExplorerUrl(hash) {
@@ -290,7 +315,7 @@ class WalletConnector {
                 relayer = ethers.ZeroAddress;
             }
 
-            if (!contract) {
+            if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
                 await initContract();
             }
 
@@ -345,7 +370,7 @@ class WalletConnector {
                 return;
             }
 
-            if (!contract) {
+            if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
                 await initContract();
             }
 
