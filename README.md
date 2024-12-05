@@ -1,13 +1,11 @@
 # Admin Panel DApp
 
-A decentralized application for interacting with Bifrost Network's bonding functionality. This DApp allows node operators to connect their MetaMask wallet, bond BFC, and manage their candidate status on the Bifrost.
+A decentralized application for interacting with the Bifrost Network’s bonding contract. This DApp allows node operators to connect their MetaMask wallet, bond BFC, and manage their candidate status on the Bifrost Network.
 
 ## Features
 
-- MetaMask wallet integration
-- Network management (add/switch to Bifrost)
-- Candidate validation status check
-- Token bonding functionality
+- Check the status of candidate validation
+- Self-bonding by using Bifrost Network's precompile
 - Additional bond amount management
 
 ## Prerequisites
@@ -53,8 +51,8 @@ Bifrost Mainnet details:
 ## Usage
 
 1. Connect your MetaMask wallet
-2. Add or switch to Bifrost Testnet or Mainnet
-3. Check your candidate validation status
+2. Add or switch to Bifrost Mainnet or Testnet
+3. Check the status of your candidate validation
 4. Enter bonding details:
    - Controller address
    - Relayer address
