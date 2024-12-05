@@ -1,12 +1,13 @@
-# Admin Panel DApp
+# Admin Panel for Bifrost Node Staking
 
-A decentralized application for interacting with the Bifrost Network’s bonding contract. This DApp allows node operators to connect their MetaMask wallet, bond BFC, and manage their candidate status on the Bifrost Network. It supports EVM transactions to perform bonding functionality on the Bifrost Network, enabling node operators who use hardware wallets to perform self-bonding.
+An administrative interface for institutions and external wallet users to stake (self-bond) BFC to Biforst Nodes. 
 
 ## Features
 
-- Check the status of candidate validation
-- Self-bonding by using Bifrost Network's precompile
-- Additional bond amount management
+- Support MetaMask wallet (w/ HW Wallet) 
+- Support Bifrost Mainnet and Testnet Networks
+- Provide adaptive user actions based on the users' current staking status
+- Manage BFC staked in Bifrost Node
 
 ## Prerequisites
 
@@ -52,9 +53,9 @@ Bifrost Mainnet details:
 
 1. Connect your MetaMask wallet
 2. Add or switch to Bifrost Mainnet or Testnet
-3. Check the status of your candidate validation
+3. Check your staking status
 4. Enter bonding details:
    - Controller address
    - Relayer address
    - Amount to bond
-5. Submit transaction and wait for confirmation
+5. Submit the transaction and wait for confirmation
