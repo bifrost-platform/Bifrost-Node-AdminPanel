@@ -1,6 +1,6 @@
 # Admin Panel DApp
 
-A decentralized application for interacting with the Bifrost Network’s bonding contract. This DApp allows node operators to connect their MetaMask wallet, bond BFC, and manage their candidate status on the Bifrost Network.
+A decentralized application for interacting with the Bifrost Network’s bonding contract. This DApp allows node operators to connect their MetaMask wallet, bond BFC, and manage their candidate status on the Bifrost Network. It supports EVM transactions to perform bonding functionality on the Bifrost Network, enabling node operators who use hardware wallets to perform self-bonding.
 
 ## Features
 
