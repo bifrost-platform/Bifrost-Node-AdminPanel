@@ -1,4 +1,71 @@
 import { ethers } from 'ethers';
+import { createAppKit } from '@reown/appkit'
+import { EthersAdapter } from '@reown/appkit-adapter-ethers'
+import { mainnet } from 'viem/chains'
+
+localStorage.clear();
+
+// 1. Get projectId from https://cloud.reown.com
+const projectId = '31ff83650935a14be97f541529150d8f'
+
+// 2. Create your application's metadata object
+const metadata = {
+  name: 'AppKit',
+  description: 'AppKit Example',
+  url: 'https://reown.com/appkit', // origin must match your domain & subdomain
+  icons: ['https://avatars.githubusercontent.com/u/179229932']
+}
+
+// Bifrost 네트워크 설정
+const BifrostMainnet = {
+    id: 0xbfc,
+    name: 'Bifrost',
+    network: 'bifrost',
+    nativeCurrency: {
+        decimals: 18,
+        name: 'BFC',
+        symbol: 'BFC',
+    },
+    rpcUrls: {
+        public: { http: ['https://public-01.mainnet.bifrostnetwork.com/rpc'] },
+        default: { http: ['https://public-01.mainnet.bifrostnetwork.com/rpc'] },
+    },
+    blockExplorers: {
+        default: { name: 'BifrostScan', url: 'https://explorer.mainnet.bifrostnetwork.com/' },
+    }
+}
+
+// Bifrost Testnet 네트워크 설정
+const BifrostTestnet = {
+    id: 0xbfc0,
+    name: 'Bifrost Testnet',
+    network: 'bifrost-testnet',
+    nativeCurrency: {
+        decimals: 18,
+        name: 'BFC',
+        symbol: 'BFC',
+    },
+    rpcUrls: {
+        public: { http: ['https://public-01.testnet.bifrostnetwork.com/rpc'] },
+        default: { http: ['https://public-01.testnet.bifrostnetwork.com/rpc'] },
+    },
+    blockExplorers: {
+        default: { name: 'BifrostScan Testnet', url: 'https://explorer.testnet.bifrostnetwork.com/' },
+    }
+}
+
+// 3. Create a AppKit instance
+const modal = createAppKit({
+  adapters: [new EthersAdapter()],
+//   networks: [BifrostMainnet, BifrostTestnet],
+    networks: [BifrostMainnet, BifrostTestnet, mainnet],
+  metadata,
+  projectId,
+  features: {
+    connectMethodsOrder: ['wallet'],
+  }
+});
+
 
 const CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000400';
 const CONTRACT_ABI = [
@@ -81,17 +148,10 @@ const CONTRACT_ABI = [
 
 let contract = null;
 
-async function initContract() {
-    if (window.ethereum) {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-    }
-    return contract;
-}
-
 class WalletConnector {
     constructor() {
+        this.flag = false;
+        this.provider = null;
         this.account = null;
         this.networkConfig = {
             chainId: '0xBFC0',
@@ -130,6 +190,7 @@ class WalletConnector {
         this.metamaskStatus = document.getElementById('metamaskStatus');
         this.walletSection = document.getElementById('walletSection');
         this.connectButton = document.getElementById('connectButton');
+        this.walletConnectButton = document.getElementById('walletConnectButton');
         this.walletInfo = document.getElementById('walletInfo');
         this.accountAddress = document.getElementById('accountAddress');
         this.controller = document.getElementById('controller');
@@ -168,7 +229,6 @@ class WalletConnector {
             this.disconnectButton.addEventListener('click', () => this.disconnectWallet());
         }
 
-        await initContract();
         await this.updateCurrentNetwork();
 
         if (window.ethereum) {
@@ -183,6 +243,15 @@ class WalletConnector {
         this.connectButton.addEventListener('click', () => this.connectWallet());
         this.bondingButton.addEventListener('click', () => this.handleTransaction());
         this.bondMoreButton.addEventListener('click', () => this.handleBondMore());
+        this.walletConnectButton.addEventListener('click', () => this.walletConnect());
+    }
+
+    async initContract() {
+        if (this.provider) {
+            const signer = await this.provider.getSigner();
+            contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        }
+        return contract;
     }
 
     async checkMetaMaskInstallation() {
@@ -204,6 +273,12 @@ class WalletConnector {
 
     async connectWallet() {
         try {
+            // MetaMask가 설치되어 있지 않으면 WalletConnect를 사용하도록 안내
+            if (typeof window.ethereum === 'undefined') {
+                alert('MetaMask가 설치되어 있지 않습니다. WalletConnect를 사용해주세요.');
+                return;
+            }
+
             const accounts = await window.ethereum.request({
                 method: 'eth_requestAccounts'
             });
@@ -212,8 +287,10 @@ class WalletConnector {
             this.accountAddress.textContent = this.account;
             this.walletInfo.classList.remove('hidden');
             this.connectButton.classList.add('hidden');
-            
-            console.log('Wallet connected, updating network status...');
+
+            this.provider = new ethers.BrowserProvider(window.ethereum);
+            this.flag = false;
+                        
             await this.updateCurrentNetwork();
             
             window.ethereum.on('accountsChanged', async (accounts) => {
@@ -227,12 +304,40 @@ class WalletConnector {
             });
 
         } catch (error) {
-            console.error('Failed to connect wallet:', error);
-            alert('Failed to connect wallet.');
+            console.error('지갑 연결 실패:', error);
+            alert('지갑 연결에 실패했습니다.');
         }
     }
 
-    disconnectWallet() {
+    async walletConnect() {
+        try {
+            // WalletConnect 모달 열기
+            await modal.open();
+            
+            // 연결될 때까지 대기
+            while (!modal.getAddress()) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            // 연결된 후 provider와 account 설정
+            this.provider = new ethers.BrowserProvider(modal.getWalletProvider());
+            this.account = modal.getAddress();
+
+            // UI 업데이트
+            this.accountAddress.textContent = this.account;
+            this.walletInfo.classList.remove('hidden');
+            this.connectButton.classList.add('hidden');
+            this.flag = true;
+            
+            await this.updateCurrentNetwork();
+
+        } catch (error) {
+            console.error('WalletConnect 연결 실패:', error);
+            alert('WalletConnect 연결에 실패했습니다.');
+        }
+    }
+
+    async disconnectWallet() {
         this.account = null;
         this.accountAddress.textContent = '';
         this.walletInfo.classList.add('hidden');
@@ -255,6 +360,8 @@ class WalletConnector {
         this.controller.disabled = true;
         this.additionalAmount.disabled = true;
         this.bondMoreButton.disabled = true;
+
+        await modal.disconnect();
         
         this.addLog('Wallet disconnected');
     }
@@ -451,13 +558,20 @@ class WalletConnector {
     }
 
     async updateCurrentNetwork() {
-        if (window.ethereum) {
+        if (this.provider) {
             try {
-                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                let chainId;
+
+                if (this.flag) {
+                    chainId = modal.getChainId();
+                } else {
+                    chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                }
+
                 let networkDisplayName;
-                if (chainId === '0xbfc') {
+                if (chainId === '0xbfc' || chainId === 3068) {
                     networkDisplayName = 'Bifrost Mainnet';
-                } else if (chainId === '0xbfc0') {
+                } else if (chainId === '0xbfc0' || chainId === 49088) {
                     networkDisplayName = 'Bifrost Testnet';
                 } else {
                     networkDisplayName = chainId;
@@ -473,17 +587,13 @@ class WalletConnector {
                 this.controller.value = '';
                 this.bondingButton.disabled = !this.bondingAmount.value;
 
-                if ((chainId === '0xbfc0' || chainId === '0xbfc') && this.account) {
-                    if (!contract) {
-                        await initContract();
-                    }
-                    
+                if ((chainId === '0xbfc0' || chainId === '0xbfc' || chainId === 49088 || chainId === 3068) && this.account) {
+                    await this.initContract();
                     try {
                         const states = await contract.candidate_states(0);
                         const candidates = states[1].map(addr => addr.toLowerCase());
 
                         const isValid = candidates.includes(this.account.toLowerCase());
-
                         if (isValid) {
                             const stakeAmounts = states[2][candidates.indexOf(this.account.toLowerCase())];
                             const formattedAmount = ethers.formatEther(stakeAmounts);

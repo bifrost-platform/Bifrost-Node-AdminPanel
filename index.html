@@ -218,6 +218,7 @@
             color: var(--primary-color);
             background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -250,6 +251,7 @@
         .gradient-text {
             background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -270,6 +272,33 @@
         #accountAddress {
             margin-right: 10px;
         }
+
+        .connect-buttons {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        /* WalletConnect 버튼 스타일 커스터마이징 */
+        appkit-button::part(button) {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        appkit-button::part(button):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -285,7 +314,19 @@
     </div>
 
     <div id="walletSection" class="hidden">
-        <button id="connectButton">Connect Wallet</button>
+        <div class="connect-buttons">
+            <button id="connectButton">Connect to MetaMask</button>
+            <style>
+                appkit-button {
+                    margin-left: 24px;
+                }
+            </style>
+            <appkit-button id="walletConnectButton" label="Connect to WalletConnect"></appkit-button>
+            <appkit-network-button></appkit-network-button>
+        </div>
+
+        
+
         <div id="walletInfo" class="hidden">
             <span>Connected Wallet: </span>
             <span id="accountAddress"></span>
