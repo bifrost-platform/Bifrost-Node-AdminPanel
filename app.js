@@ -5,10 +5,8 @@ import { mainnet } from 'viem/chains'
 
 localStorage.clear();
 
-// 1. Get projectId from https://cloud.reown.com
 const projectId = '31ff83650935a14be97f541529150d8f'
 
-// 2. Create your application's metadata object
 const metadata = {
   name: 'AppKit',
   description: 'AppKit Example',
@@ -16,7 +14,6 @@ const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/179229932']
 }
 
-// Bifrost 네트워크 설정
 const BifrostMainnet = {
     id: 0xbfc,
     name: 'Bifrost',
@@ -54,7 +51,6 @@ const BifrostTestnet = {
     }
 }
 
-// 3. Create a AppKit instance
 const modal = createAppKit({
   adapters: [new EthersAdapter()],
 //   networks: [BifrostMainnet, BifrostTestnet],
@@ -233,7 +229,7 @@ class WalletConnector {
 
         if (window.ethereum) {
             window.ethereum.on('chainChanged', async () => {
-                await initContract();
+                await this.initContract();
                 this.updateCurrentNetwork();
             });
         }
@@ -423,7 +419,7 @@ class WalletConnector {
             }
 
             if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
-                await initContract();
+                await this.initContract();
             }
 
             const amountInWei = ethers.parseEther(amount.toString());
@@ -478,7 +474,7 @@ class WalletConnector {
             }
 
             if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
-                await initContract();
+                await this.initContract();
             }
 
             const amountInWei = ethers.parseEther(amount.toString());
