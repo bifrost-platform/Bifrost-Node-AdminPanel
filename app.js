@@ -392,11 +392,16 @@ class WalletConnector {
             this.additionalAmount.disabled = false;
             this.bondMoreButton.disabled = false;
 
-            const state = await contract.candidate_state(this.account);
-            const formattedAmount = ethers.formatEther(state.bond);
-            this.validationStatus.textContent = `[Stake amount: ${formattedAmount} BFC]`;
-            this.validationStatus.classList.remove('invalid');
-            this.validationStatus.classList.add('valid');
+            const states = await contract.candidate_states(0);
+            const stashes = states[1].map(addr => addr.toLowerCase());
+            const index = stashes.indexOf(this.account.toLowerCase());
+
+            if (index !== -1) {
+                const formattedAmount = ethers.formatEther(states[2][index]);
+                this.validationStatus.textContent = `[Stake amount: ${formattedAmount} BFC]`;
+                this.validationStatus.classList.remove('invalid');
+                this.validationStatus.classList.add('valid');
+            }
 
         } catch (error) {
             console.error('Transaction failed:', error);
@@ -431,11 +436,16 @@ class WalletConnector {
             await tx.wait();
             this.addLog('Bond more transaction confirmed!');
 
-            const state = await contract.candidate_state(this.account);
-            const formattedAmount = ethers.formatEther(state.bond);
-            this.validationStatus.textContent = `[Stake amount: ${formattedAmount} BFC]`;
-            this.validationStatus.classList.remove('invalid');
-            this.validationStatus.classList.add('valid');
+            const states = await contract.candidate_states(0);
+            const stashes = states[1].map(addr => addr.toLowerCase());
+            const index = stashes.indexOf(this.account.toLowerCase());
+
+            if (index !== -1) {
+                const formattedAmount = ethers.formatEther(states[2][index]);
+                this.validationStatus.textContent = `[Stake amount: ${formattedAmount} BFC]`;
+                this.validationStatus.classList.remove('invalid');
+                this.validationStatus.classList.add('valid');
+            }
 
         } catch (error) {
             console.error('Bond more transaction failed:', error);
@@ -627,19 +637,22 @@ class WalletConnector {
                     await this.updateTierInfo();
 
                     try {
-                        // Use candidate_state to get specific candidate info
-                        const state = await contract.candidate_state(this.account);
+                        // Get all candidates and check if connected address is a stash
+                        const states = await contract.candidate_states(0);
+                        const stashes = states[1].map(addr => addr.toLowerCase());
 
-                        // Check if candidate exists (bond > 0 or status is active)
-                        const isValid = state.bond > 0n;
+                        // Find index of connected account in stash array
+                        const index = stashes.indexOf(this.account.toLowerCase());
+                        const isValid = index !== -1;
 
                         if (isValid) {
-                            const formattedAmount = ethers.formatEther(state.bond);
-                            const formattedVP = ethers.formatEther(state.voting_power);
+                            // Get candidate info using the index
+                            const formattedAmount = ethers.formatEther(states[2][index]); // bond
+                            const formattedVP = ethers.formatEther(states[5][index]); // voting_power
 
                             // Map tier number to text
                             let tierText = 'Unknown';
-                            const tierValue = Number(state.tier);
+                            const tierValue = Number(states[19][index]); // tier
                             if (tierValue === 0) {
                                 tierText = 'Non Candidate';
                             } else if (tierValue === 1) {
@@ -658,20 +671,23 @@ class WalletConnector {
                             this.currentTier.textContent = tierText;
                             this.currentTierStatus.style.display = 'block';
                         } else {
-                            this.validationStatus.textContent = '[Stake amount: 0 BFC]';
-                            this.validationStatus.classList.remove('invalid');
-                            this.validationStatus.classList.add('valid');
+                            this.validationStatus.textContent = '[Not a Candidate]';
+                            this.validationStatus.classList.remove('valid');
+                            this.validationStatus.classList.add('invalid');
 
                             // Hide current tier status
                             this.currentTierStatus.style.display = 'none';
                         }
                         this.validationStatus.style.display = 'inline';
 
+                        // Always enable bonding section (can be used for both bond and bond more)
+                        this.bondingButton.disabled = false;
+                        this.bondingAmount.disabled = false;
+                        this.relayer.disabled = false;
+                        this.controller.disabled = false;
+
                         if (isValid) {
-                            this.bondingButton.disabled = true;
-                            this.bondingAmount.disabled = true;
-                            this.relayer.disabled = true;
-                            this.controller.disabled = true;
+                            // Enable additional features for registered candidates
                             this.additionalAmount.disabled = false;
                             this.bondMoreButton.disabled = false;
                             this.setTierButton.disabled = false;
@@ -679,10 +695,7 @@ class WalletConnector {
                             const selectedTier = document.querySelector('input[name="tierSelect"]:checked').value;
                             this.handleTierChange(selectedTier);
                         } else {
-                            this.bondingButton.disabled = false;
-                            this.bondingAmount.disabled = false;
-                            this.relayer.disabled = false;
-                            this.controller.disabled = false;
+                            // Disable additional features for non-candidates
                             this.additionalAmount.disabled = true;
                             this.bondMoreButton.disabled = true;
                             this.tierMoreAmount.disabled = true;
