@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 import { createAppKit } from '@reown/appkit'
 import { EthersAdapter } from '@reown/appkit-adapter-ethers'
 import { mainnet } from 'viem/chains'
+import CONTRACT_ABI from './abi.json';
 
 localStorage.clear();
 
@@ -64,83 +65,6 @@ const modal = createAppKit({
 
 
 const CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000400';
-const CONTRACT_ABI = [
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "tier",
-                "type": "uint256"
-            }
-        ],
-        "name": "candidate_states",
-        "outputs": [
-        {"type": "address[]"},
-        {"type": "address[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "bool[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"},
-        {"type": "uint256[]"}
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "controller",
-                "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "relayer",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            },
-            {
-                "internalType": "uint256",
-                "name": "candidateCount",
-                "type": "uint256"
-            }
-        ],
-        "name": "join_candidates",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "more",
-                "type": "uint256"
-            }
-        ],
-        "name": "candidate_bond_more",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-];
 
 let contract = null;
 
@@ -203,6 +127,16 @@ class WalletConnector {
         this.switchMainnetButton = document.getElementById('switchMainnetButton');
         this.logMessages = document.getElementById('logMessages');
         this.disconnectButton = document.getElementById('disconnectButton');
+        this.tierRadios = document.getElementsByName('tierSelect');
+        this.tierMoreAmount = document.getElementById('tierMoreAmount');
+        this.tierRelayerAddress = document.getElementById('tierRelayerAddress');
+        this.setTierButton = document.getElementById('setTierButton');
+        this.tier1Info = document.getElementById('tier1Info');
+        this.tier2Info = document.getElementById('tier2Info');
+        this.currentTierStatus = document.getElementById('currentTierStatus');
+        this.currentBond = document.getElementById('currentBond');
+        this.currentVotingPower = document.getElementById('currentVotingPower');
+        this.currentTier = document.getElementById('currentTier');
 
         await this.checkMetaMaskInstallation();
         
@@ -240,6 +174,12 @@ class WalletConnector {
         this.bondingButton.addEventListener('click', () => this.handleTransaction());
         this.bondMoreButton.addEventListener('click', () => this.handleBondMore());
         this.walletConnectButton.addEventListener('click', () => this.walletConnect());
+        this.setTierButton.addEventListener('click', () => this.handleSetValidatorTier());
+
+        // Tier radio button change event
+        this.tierRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => this.handleTierChange(e.target.value));
+        });
     }
 
     async initContract() {
@@ -338,17 +278,22 @@ class WalletConnector {
         this.accountAddress.textContent = '';
         this.walletInfo.classList.add('hidden');
         this.connectButton.classList.remove('hidden');
-        
+
         // Reset form fields
         this.bondingAmount.value = '';
         this.relayer.value = '';
         this.controller.value = '';
         this.additionalAmount.value = '';
-        
+        this.tierMoreAmount.value = '';
+        this.tierRelayerAddress.value = '';
+
         // Reset validation status
         this.validationStatus.textContent = '';
         this.validationStatus.style.display = 'none';
-        
+
+        // Reset tier radio to default (Tier 1)
+        this.tierRadios[0].checked = true;
+
         // Disable all transaction buttons
         this.bondingButton.disabled = true;
         this.bondingAmount.disabled = true;
@@ -356,9 +301,12 @@ class WalletConnector {
         this.controller.disabled = true;
         this.additionalAmount.disabled = true;
         this.bondMoreButton.disabled = true;
+        this.tierMoreAmount.disabled = true;
+        this.tierRelayerAddress.disabled = true;
+        this.setTierButton.disabled = true;
 
         await modal.disconnect();
-        
+
         this.addLog('Wallet disconnected');
     }
 
@@ -444,11 +392,8 @@ class WalletConnector {
             this.additionalAmount.disabled = false;
             this.bondMoreButton.disabled = false;
 
-            const states = await contract.candidate_states(0);
-            const candidates = states[1].map(addr => addr.toLowerCase());
-
-            const stakeAmounts = states[2][candidates.indexOf(this.account.toLowerCase())];
-            const formattedAmount = ethers.formatEther(stakeAmounts);
+            const state = await contract.candidate_state(this.account);
+            const formattedAmount = ethers.formatEther(state.bond);
             this.validationStatus.textContent = `[Stake amount: ${formattedAmount} BFC]`;
             this.validationStatus.classList.remove('invalid');
             this.validationStatus.classList.add('valid');
@@ -485,12 +430,9 @@ class WalletConnector {
 
             await tx.wait();
             this.addLog('Bond more transaction confirmed!');
-            
-            const states = await contract.candidate_states(0);
-            const candidates = states[1].map(addr => addr.toLowerCase());
 
-            const stakeAmounts = states[2][candidates.indexOf(this.account.toLowerCase())];
-            const formattedAmount = ethers.formatEther(stakeAmounts);
+            const state = await contract.candidate_state(this.account);
+            const formattedAmount = ethers.formatEther(state.bond);
             this.validationStatus.textContent = `[Stake amount: ${formattedAmount} BFC]`;
             this.validationStatus.classList.remove('invalid');
             this.validationStatus.classList.add('valid');
@@ -498,6 +440,97 @@ class WalletConnector {
         } catch (error) {
             console.error('Bond more transaction failed:', error);
             this.addLog('Bond more transaction failed: ' + error.message, true);
+        }
+    }
+
+    async updateTierInfo() {
+        try {
+            if (!contract) {
+                return;
+            }
+
+            // Get minimum self bond for each tier
+            const minSelfBond = await contract.candidate_minimum_self_bond();
+            const tier1MinBond = ethers.formatEther(minSelfBond[0]);
+            const tier2MinBond = ethers.formatEther(minSelfBond[1]);
+
+            // Get minimum voting power for each tier
+            const minVotingPower = await contract.candidate_minimum_voting_power();
+            const tier1MinVP = ethers.formatEther(minVotingPower[0]);
+            const tier2MinVP = ethers.formatEther(minVotingPower[1]);
+
+            // Update tier info display in one line
+            this.tier1Info.textContent = `Min Bond: ${tier1MinBond} BFC | Min Voting Power: ${tier1MinVP} BFC`;
+            this.tier2Info.textContent = `Min Bond: ${tier2MinBond} BFC | Min Voting Power: ${tier2MinVP} BFC`;
+
+        } catch (error) {
+            console.error('Failed to fetch tier info:', error);
+            this.tier1Info.textContent = '';
+            this.tier2Info.textContent = '';
+        }
+    }
+
+    handleTierChange(tier) {
+        if (tier === '1') {
+            // Tier 1 (Basic): Disable more and relayer fields
+            this.tierMoreAmount.disabled = true;
+            this.tierRelayerAddress.disabled = true;
+            this.tierMoreAmount.value = '';
+            this.tierRelayerAddress.value = '';
+        } else if (tier === '2') {
+            // Tier 2 (Full): Enable more and relayer fields
+            this.tierMoreAmount.disabled = false;
+            this.tierRelayerAddress.disabled = false;
+        }
+    }
+
+    async handleSetValidatorTier() {
+        try {
+            const selectedTier = document.querySelector('input[name="tierSelect"]:checked').value;
+            let more = 0;
+            let relayer = ethers.ZeroAddress;
+
+            if (selectedTier === '2') {
+                const moreAmount = this.tierMoreAmount.value;
+                const relayerAddress = this.tierRelayerAddress.value;
+
+                if (!moreAmount) {
+                    alert('Please enter more amount for Tier 2.');
+                    return;
+                }
+
+                if (!relayerAddress || !ethers.isAddress(relayerAddress)) {
+                    alert('Please enter a valid relayer address for Tier 2.');
+                    return;
+                }
+
+                more = ethers.parseEther(moreAmount.toString());
+                relayer = relayerAddress;
+            }
+
+            if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
+                await this.initContract();
+            }
+
+            const tx = await contract.set_validator_tier(
+                more,
+                parseInt(selectedTier),
+                relayer
+            );
+
+            this.addLog('Set validator tier transaction sent:', false, tx.hash, '\nPlease wait for confirmation...');
+
+            this.setTierButton.disabled = true;
+
+            await tx.wait();
+            this.addLog('Set validator tier transaction confirmed!');
+
+            this.setTierButton.disabled = false;
+
+        } catch (error) {
+            console.error('Set validator tier transaction failed:', error);
+            this.addLog('Set validator tier transaction failed: ' + error.message, true);
+            this.setTierButton.disabled = false;
         }
     }
 
@@ -576,30 +609,59 @@ class WalletConnector {
 
                 this.validationStatus.textContent = '';
                 this.validationStatus.style.display = 'none';
-                
+
                 this.additionalAmount.value = '';
                 this.bondingAmount.value = '';
                 this.relayer.value = '';
                 this.controller.value = '';
+                this.tierMoreAmount.value = '';
+                this.tierRelayerAddress.value = '';
                 this.bondingButton.disabled = !this.bondingAmount.value;
 
                 if ((chainId === '0xbfc0' || chainId === '0xbfc' || chainId === 49088 || chainId === 3068) && this.account) {
                     await this.initContract();
-                    try {
-                        const states = await contract.candidate_states(0);
-                        const candidates = states[1].map(addr => addr.toLowerCase());
 
-                        const isValid = candidates.includes(this.account.toLowerCase());
+                    // Update tier information
+                    await this.updateTierInfo();
+
+                    try {
+                        // Use candidate_state to get specific candidate info
+                        const state = await contract.candidate_state(this.account);
+
+                        // Check if candidate exists (bond > 0 or status is active)
+                        const isValid = state.bond > 0n;
+
                         if (isValid) {
-                            const stakeAmounts = states[2][candidates.indexOf(this.account.toLowerCase())];
-                            const formattedAmount = ethers.formatEther(stakeAmounts);
+                            const formattedAmount = ethers.formatEther(state.bond);
+                            const formattedVP = ethers.formatEther(state.voting_power);
+
+                            // Map tier number to text
+                            let tierText = 'Unknown';
+                            const tierValue = Number(state.tier);
+                            if (tierValue === 0) {
+                                tierText = 'Non Candidate';
+                            } else if (tierValue === 1) {
+                                tierText = 'Basic';
+                            } else if (tierValue === 2) {
+                                tierText = 'Full';
+                            }
+
                             this.validationStatus.textContent = `[Stake amount: ${formattedAmount} BFC]`;
                             this.validationStatus.classList.remove('invalid');
                             this.validationStatus.classList.add('valid');
+
+                            // Update current tier status
+                            this.currentBond.textContent = formattedAmount;
+                            this.currentVotingPower.textContent = formattedVP;
+                            this.currentTier.textContent = tierText;
+                            this.currentTierStatus.style.display = 'block';
                         } else {
                             this.validationStatus.textContent = '[Stake amount: 0 BFC]';
                             this.validationStatus.classList.remove('invalid');
                             this.validationStatus.classList.add('valid');
+
+                            // Hide current tier status
+                            this.currentTierStatus.style.display = 'none';
                         }
                         this.validationStatus.style.display = 'inline';
 
@@ -610,6 +672,10 @@ class WalletConnector {
                             this.controller.disabled = true;
                             this.additionalAmount.disabled = false;
                             this.bondMoreButton.disabled = false;
+                            this.setTierButton.disabled = false;
+                            // Initialize tier fields based on current tier selection
+                            const selectedTier = document.querySelector('input[name="tierSelect"]:checked').value;
+                            this.handleTierChange(selectedTier);
                         } else {
                             this.bondingButton.disabled = false;
                             this.bondingAmount.disabled = false;
@@ -617,11 +683,14 @@ class WalletConnector {
                             this.controller.disabled = false;
                             this.additionalAmount.disabled = true;
                             this.bondMoreButton.disabled = true;
+                            this.tierMoreAmount.disabled = true;
+                            this.tierRelayerAddress.disabled = true;
+                            this.setTierButton.disabled = true;
                         }
 
-                        
+
                     } catch (error) {
-                        console.error('Failed to check candidate states:', error);
+                        console.error('Failed to check candidate state:', error);
                     }
                 } else {
                     this.validationStatus.textContent = '[Not on Bifrost]';
