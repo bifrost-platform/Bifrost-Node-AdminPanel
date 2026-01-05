@@ -450,14 +450,16 @@ class WalletConnector {
             }
 
             // Get minimum self bond for each tier
+            // Note: index 0 = Full (Tier 2), index 1 = Basic (Tier 1)
             const minSelfBond = await contract.candidate_minimum_self_bond();
-            const tier1MinBond = ethers.formatEther(minSelfBond[0]);
-            const tier2MinBond = ethers.formatEther(minSelfBond[1]);
+            const tier1MinBond = ethers.formatEther(minSelfBond[1]); // Basic
+            const tier2MinBond = ethers.formatEther(minSelfBond[0]); // Full
 
             // Get minimum voting power for each tier
+            // Note: index 0 = Full (Tier 2), index 1 = Basic (Tier 1)
             const minVotingPower = await contract.candidate_minimum_voting_power();
-            const tier1MinVP = ethers.formatEther(minVotingPower[0]);
-            const tier2MinVP = ethers.formatEther(minVotingPower[1]);
+            const tier1MinVP = ethers.formatEther(minVotingPower[1]); // Basic
+            const tier2MinVP = ethers.formatEther(minVotingPower[0]); // Full
 
             // Update tier info display in one line
             this.tier1Info.textContent = `Min Bond: ${tier1MinBond} BFC | Min Voting Power: ${tier1MinVP} BFC`;
