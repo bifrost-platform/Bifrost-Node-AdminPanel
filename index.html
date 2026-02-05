@@ -438,8 +438,9 @@
                         <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 12px;">
                             Withdraw all staked BFC and leave candidates
                         </p>
-                        <div style="display: flex; gap: 8px;">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                             <button id="scheduleFullWithdrawButton" disabled style="flex: 1; font-size: 12px; padding: 10px;">Schedule</button>
+                            <button id="cancelFullWithdrawButton" disabled style="flex: 1; font-size: 12px; padding: 10px;">Cancel</button>
                             <button id="executeFullWithdrawButton" disabled style="flex: 1; font-size: 12px; padding: 10px;">Execute</button>
                         </div>
                     </div>
@@ -451,9 +452,10 @@
                             Withdraw a portion of staked BFC
                         </p>
                         <div style="margin-bottom: 12px;">Amount (Unit: BFC)</div>
-                        <input type="number" id="partialWithdrawAmount" disabled placeholder="Enter amount to withdraw" style="margin-bottom: 12px;">
-                        <div style="display: flex; gap: 8px;">
+                        <input type="number" id="partialWithdrawAmount" disabled placeholder="Enter amount" style="margin-bottom: 12px; width: 50%; min-width: 120px;">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                             <button id="schedulePartialWithdrawButton" disabled style="flex: 1; font-size: 12px; padding: 10px;">Schedule</button>
+                            <button id="cancelPartialWithdrawButton" disabled style="flex: 1; font-size: 12px; padding: 10px;">Cancel</button>
                             <button id="executePartialWithdrawButton" disabled style="flex: 1; font-size: 12px; padding: 10px;">Execute</button>
                         </div>
                     </div>

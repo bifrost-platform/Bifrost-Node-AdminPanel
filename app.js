@@ -60,7 +60,8 @@ const modal = createAppKit({
   projectId,
   features: {
     connectMethodsOrder: ['wallet'],
-  }
+  },
+  enableInjected: false
 });
 
 
@@ -150,6 +151,8 @@ class WalletConnector {
         this.pairControllerAddress = document.getElementById('pairControllerAddress');
         this.pendingWithdrawStatus = document.getElementById('pendingWithdrawStatus');
         this.pendingWithdrawDetails = document.getElementById('pendingWithdrawDetails');
+        this.cancelFullWithdrawButton = document.getElementById('cancelFullWithdrawButton');
+        this.cancelPartialWithdrawButton = document.getElementById('cancelPartialWithdrawButton');
 
         // Store candidate info globally
         this.nominationCount = 0;
@@ -204,8 +207,10 @@ class WalletConnector {
 
         // Withdraw section event listeners
         this.scheduleFullWithdrawButton.addEventListener('click', () => this.handleScheduleFullWithdraw());
+        this.cancelFullWithdrawButton.addEventListener('click', () => this.handleCancelFullWithdraw());
         this.executeFullWithdrawButton.addEventListener('click', () => this.handleExecuteFullWithdraw());
         this.schedulePartialWithdrawButton.addEventListener('click', () => this.handleSchedulePartialWithdraw());
+        this.cancelPartialWithdrawButton.addEventListener('click', () => this.handleCancelPartialWithdraw());
         this.executePartialWithdrawButton.addEventListener('click', () => this.handleExecutePartialWithdraw());
     }
 
@@ -336,8 +341,10 @@ class WalletConnector {
         this.partialWithdrawAmount.value = '';
         this.partialWithdrawAmount.disabled = true;
         this.scheduleFullWithdrawButton.disabled = true;
+        this.cancelFullWithdrawButton.disabled = true;
         this.executeFullWithdrawButton.disabled = true;
         this.schedulePartialWithdrawButton.disabled = true;
+        this.cancelPartialWithdrawButton.disabled = true;
         this.executePartialWithdrawButton.disabled = true;
         this.nominationCount = 0;
         this.stashAddress = null;
@@ -657,9 +664,15 @@ class WalletConnector {
                 this.pendingWithdrawStatus.style.display = 'none';
             }
 
+            // Enable/disable cancel buttons based on pending requests
+            this.cancelFullWithdrawButton.disabled = !hasFullRequest;
+            this.cancelPartialWithdrawButton.disabled = !hasPartialRequest;
+
         } catch (error) {
             console.error('Failed to check pending withdrawals:', error);
             this.pendingWithdrawStatus.style.display = 'none';
+            this.cancelFullWithdrawButton.disabled = true;
+            this.cancelPartialWithdrawButton.disabled = true;
         }
     }
 
@@ -698,11 +711,37 @@ class WalletConnector {
             this.addLog('Schedule full withdraw confirmed! Execute after ~7 days.');
 
             this.scheduleFullWithdrawButton.disabled = false;
+            await this.updateCurrentNetwork();
 
         } catch (error) {
             console.error('Schedule full withdraw failed:', error);
             this.addLog('Schedule full withdraw failed: ' + error.message, true);
             this.scheduleFullWithdrawButton.disabled = false;
+        }
+    }
+
+    async handleCancelFullWithdraw() {
+        try {
+            if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
+                await this.initContract();
+            }
+
+            const tx = await contract.cancel_leave_candidates(100);
+
+            this.addLog('Cancel full withdraw transaction sent:', false, tx.hash);
+
+            this.cancelFullWithdrawButton.disabled = true;
+
+            await tx.wait();
+            this.addLog('Cancel full withdraw confirmed!');
+
+            this.cancelFullWithdrawButton.disabled = false;
+            await this.updateCurrentNetwork();
+
+        } catch (error) {
+            console.error('Cancel full withdraw failed:', error);
+            this.addLog('Cancel full withdraw failed: ' + error.message, true);
+            this.cancelFullWithdrawButton.disabled = false;
         }
     }
 
@@ -768,11 +807,37 @@ class WalletConnector {
             this.addLog(`Schedule partial withdraw of ${amount} BFC confirmed! Execute after ~7 days.`);
 
             this.schedulePartialWithdrawButton.disabled = false;
+            await this.updateCurrentNetwork();
 
         } catch (error) {
             console.error('Schedule partial withdraw failed:', error);
             this.addLog('Schedule partial withdraw failed: ' + error.message, true);
             this.schedulePartialWithdrawButton.disabled = false;
+        }
+    }
+
+    async handleCancelPartialWithdraw() {
+        try {
+            if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
+                await this.initContract();
+            }
+
+            const tx = await contract.cancel_candidate_bond_less();
+
+            this.addLog('Cancel partial withdraw transaction sent:', false, tx.hash);
+
+            this.cancelPartialWithdrawButton.disabled = true;
+
+            await tx.wait();
+            this.addLog('Cancel partial withdraw confirmed!');
+
+            this.cancelPartialWithdrawButton.disabled = false;
+            await this.updateCurrentNetwork();
+
+        } catch (error) {
+            console.error('Cancel partial withdraw failed:', error);
+            this.addLog('Cancel partial withdraw failed: ' + error.message, true);
+            this.cancelPartialWithdrawButton.disabled = false;
         }
     }
 
@@ -984,6 +1049,7 @@ class WalletConnector {
                             this.handleTierChange(selectedTier);
 
                             // Enable withdraw section for candidates
+                            // Cancel buttons are enabled by checkPendingWithdrawals based on pending requests
                             this.scheduleFullWithdrawButton.disabled = false;
                             this.executeFullWithdrawButton.disabled = false;
                             this.partialWithdrawAmount.disabled = false;
@@ -1002,9 +1068,11 @@ class WalletConnector {
 
                             // Disable withdraw section for non-candidates
                             this.scheduleFullWithdrawButton.disabled = true;
+                            this.cancelFullWithdrawButton.disabled = true;
                             this.executeFullWithdrawButton.disabled = true;
                             this.partialWithdrawAmount.disabled = true;
                             this.schedulePartialWithdrawButton.disabled = true;
+                            this.cancelPartialWithdrawButton.disabled = true;
                             this.executePartialWithdrawButton.disabled = true;
                             this.nominationCount = 0;
                             this.stashAddress = null;
