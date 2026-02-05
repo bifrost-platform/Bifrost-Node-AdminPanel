@@ -44,8 +44,8 @@ const BifrostTestnet = {
         symbol: 'BFC',
     },
     rpcUrls: {
-        public: { http: ['http://10.100.0.94:9944'] },
-        default: { http: ['http://10.100.0.94:9944'] },
+        public: { http: ['https://public-01.testnet.bifrostnetwork.com/rpc'] },
+        default: { http: ['https://public-01.testnet.bifrostnetwork.com/rpc'] },
     },
     blockExplorers: {
         default: { name: 'BifrostScan Testnet', url: 'https://explorer.testnet.bifrostnetwork.com/' },
