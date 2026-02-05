@@ -4,6 +4,9 @@ import { EthersAdapter } from '@reown/appkit-adapter-ethers'
 import { mainnet } from 'viem/chains'
 import CONTRACT_ABI from './abi.json';
 
+// AppKit 초기화 전에 원본 MetaMask provider 저장
+const originalEthereum = window.ethereum;
+
 localStorage.clear();
 
 const projectId = '31ff83650935a14be97f541529150d8f'
@@ -184,8 +187,8 @@ class WalletConnector {
             this.disconnectButton.addEventListener('click', () => this.disconnectWallet());
         }
 
-        if (window.ethereum) {
-            window.ethereum.on('chainChanged', async () => {
+        if (originalEthereum) {
+            originalEthereum.on('chainChanged', async () => {
                 if (this.connectionType !== 'metamask') return;
                 await this.initContract();
                 this.updateCurrentNetwork();
@@ -225,7 +228,7 @@ class WalletConnector {
 
     async checkMetaMaskInstallation() {
         console.log("Checking MetaMask installation...");
-        if (typeof window.ethereum !== 'undefined') {
+        if (typeof originalEthereum !== 'undefined' && originalEthereum) {
             console.log("MetaMask is installed");
             this.metamaskStatus.innerHTML = 'MetaMask is installed';
             this.metamaskStatus.classList.add('installed');
@@ -246,12 +249,12 @@ class WalletConnector {
     async connectWallet() {
         try {
             // MetaMask가 설치되어 있지 않으면 WalletConnect를 사용하도록 안내
-            if (typeof window.ethereum === 'undefined') {
+            if (typeof originalEthereum === 'undefined' || !originalEthereum) {
                 alert('MetaMask가 설치되어 있지 않습니다. WalletConnect를 사용해주세요.');
                 return;
             }
 
-            const accounts = await window.ethereum.request({
+            const accounts = await originalEthereum.request({
                 method: 'eth_requestAccounts'
             });
 
@@ -260,7 +263,7 @@ class WalletConnector {
             this.walletInfo.classList.remove('hidden');
             this.connectButton.classList.add('hidden');
 
-            this.provider = new ethers.BrowserProvider(window.ethereum);
+            this.provider = new ethers.BrowserProvider(originalEthereum);
             this.connectionType = 'metamask';
 
             await this.updateCurrentNetwork();
@@ -268,7 +271,7 @@ class WalletConnector {
             // MetaMask 리스너는 한 번만 등록
             if (!this.metamaskListenerAdded) {
                 this.metamaskListenerAdded = true;
-                window.ethereum.on('accountsChanged', async (accounts) => {
+                originalEthereum.on('accountsChanged', async (accounts) => {
                     if (this.connectionType !== 'metamask') return;
                     if (accounts.length === 0) {
                         this.disconnectWallet();
@@ -434,8 +437,8 @@ class WalletConnector {
 
         if (this.connectionType === 'walletconnect') {
             chainId = modal.getChainId();
-        } else if (this.connectionType === 'metamask' && window.ethereum) {
-            chainId = window.ethereum.chainId;
+        } else if (this.connectionType === 'metamask' && originalEthereum) {
+            chainId = originalEthereum.chainId;
         } else {
             return null;
         }
@@ -938,12 +941,12 @@ class WalletConnector {
             alert('WalletConnect 사용 시 지갑 앱에서 직접 네트워크를 추가해주세요.');
             return;
         }
-        if (!window.ethereum) {
+        if (!originalEthereum) {
             alert('MetaMask가 설치되어 있지 않습니다.');
             return;
         }
         try {
-            await window.ethereum.request({
+            await originalEthereum.request({
                 method: 'wallet_addEthereumChain',
                 params: [this.networkConfig],
             });
@@ -959,12 +962,12 @@ class WalletConnector {
             alert('WalletConnect 사용 시 지갑 앱에서 직접 네트워크를 변경해주세요.');
             return;
         }
-        if (!window.ethereum) {
+        if (!originalEthereum) {
             alert('MetaMask가 설치되어 있지 않습니다.');
             return;
         }
         try {
-            await window.ethereum.request({
+            await originalEthereum.request({
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: this.networkConfig.chainId }],
             });
@@ -980,12 +983,12 @@ class WalletConnector {
             alert('WalletConnect 사용 시 지갑 앱에서 직접 네트워크를 추가해주세요.');
             return;
         }
-        if (!window.ethereum) {
+        if (!originalEthereum) {
             alert('MetaMask가 설치되어 있지 않습니다.');
             return;
         }
         try {
-            await window.ethereum.request({
+            await originalEthereum.request({
                 method: 'wallet_addEthereumChain',
                 params: [this.mainnetConfig],
             });
@@ -1001,12 +1004,12 @@ class WalletConnector {
             alert('WalletConnect 사용 시 지갑 앱에서 직접 네트워크를 변경해주세요.');
             return;
         }
-        if (!window.ethereum) {
+        if (!originalEthereum) {
             alert('MetaMask가 설치되어 있지 않습니다.');
             return;
         }
         try {
-            await window.ethereum.request({
+            await originalEthereum.request({
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: this.mainnetConfig.chainId }],
             });
@@ -1029,7 +1032,7 @@ class WalletConnector {
             if (this.connectionType === 'walletconnect') {
                 chainId = modal.getChainId();
             } else if (this.connectionType === 'metamask') {
-                chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                chainId = await originalEthereum.request({ method: 'eth_chainId' });
             } else {
                 return;
             }
