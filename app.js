@@ -44,8 +44,8 @@ const BifrostTestnet = {
         symbol: 'BFC',
     },
     rpcUrls: {
-        public: { http: ['https://public-01.testnet.bifrostnetwork.com/rpc'] },
-        default: { http: ['https://public-01.testnet.bifrostnetwork.com/rpc'] },
+        public: { http: ['http://10.100.0.94:9944'] },
+        default: { http: ['http://10.100.0.94:9944'] },
     },
     blockExplorers: {
         default: { name: 'BifrostScan Testnet', url: 'https://explorer.testnet.bifrostnetwork.com/' },
@@ -71,9 +71,11 @@ let contract = null;
 
 class WalletConnector {
     constructor() {
-        this.flag = false;
+        this.connectionType = null; // 'metamask' or 'walletconnect' or null
         this.provider = null;
         this.account = null;
+        this.metamaskListenerAdded = false;
+        this.wcPollingInterval = null;
         this.networkConfig = {
             chainId: '0xBFC0',
             chainName: 'Bifrost Testnet',
@@ -182,10 +184,9 @@ class WalletConnector {
             this.disconnectButton.addEventListener('click', () => this.disconnectWallet());
         }
 
-        await this.updateCurrentNetwork();
-
         if (window.ethereum) {
             window.ethereum.on('chainChanged', async () => {
+                if (this.connectionType !== 'metamask') return;
                 await this.initContract();
                 this.updateCurrentNetwork();
             });
@@ -228,15 +229,18 @@ class WalletConnector {
             console.log("MetaMask is installed");
             this.metamaskStatus.innerHTML = 'MetaMask is installed';
             this.metamaskStatus.classList.add('installed');
-            this.walletSection.classList.remove('hidden');
         } else {
             console.log("MetaMask is not installed");
-            this.metamaskStatus.innerHTML = `
-                <p>MetaMask is not installed.</p>
-                <a href="https://metamask.io/download/" target="_blank">Install MetaMask</a>
-            `;
+            this.metamaskStatus.innerHTML = 'MetaMask is not installed. Use WalletConnect instead.';
             this.metamaskStatus.classList.add('not-installed');
+            // MetaMask 버튼 비활성화
+            if (this.connectButton) {
+                this.connectButton.disabled = true;
+                this.connectButton.title = 'MetaMask not installed';
+            }
         }
+        // WalletConnect는 항상 사용 가능하므로 섹션 표시
+        this.walletSection.classList.remove('hidden');
     }
 
     async connectWallet() {
@@ -257,19 +261,24 @@ class WalletConnector {
             this.connectButton.classList.add('hidden');
 
             this.provider = new ethers.BrowserProvider(window.ethereum);
-            this.flag = false;
-                        
+            this.connectionType = 'metamask';
+
             await this.updateCurrentNetwork();
-            
-            window.ethereum.on('accountsChanged', async (accounts) => {
-                if (accounts.length === 0) {
-                    this.disconnectWallet();
-                } else {
-                    this.account = accounts[0];
-                    this.accountAddress.textContent = this.account;
-                    await this.updateCurrentNetwork();
-                }
-            });
+
+            // MetaMask 리스너는 한 번만 등록
+            if (!this.metamaskListenerAdded) {
+                this.metamaskListenerAdded = true;
+                window.ethereum.on('accountsChanged', async (accounts) => {
+                    if (this.connectionType !== 'metamask') return;
+                    if (accounts.length === 0) {
+                        this.disconnectWallet();
+                    } else {
+                        this.account = accounts[0];
+                        this.accountAddress.textContent = this.account;
+                        await this.updateCurrentNetwork();
+                    }
+                });
+            }
 
         } catch (error) {
             console.error('지갑 연결 실패:', error);
@@ -295,9 +304,12 @@ class WalletConnector {
             this.accountAddress.textContent = this.account;
             this.walletInfo.classList.remove('hidden');
             this.connectButton.classList.add('hidden');
-            this.flag = true;
+            this.connectionType = 'walletconnect';
 
             await this.updateCurrentNetwork();
+
+            // WalletConnect 체인/계정 변경 감지 (폴링)
+            this.startWalletConnectPolling();
 
         } catch (error) {
             console.error('WalletConnect 연결 실패:', error);
@@ -305,8 +317,64 @@ class WalletConnector {
         }
     }
 
+    startWalletConnectPolling() {
+        // 이전 폴링 중지
+        if (this.wcPollingInterval) {
+            clearInterval(this.wcPollingInterval);
+        }
+
+        let lastAddress = this.account;
+        let lastChainId = modal.getChainId();
+
+        this.wcPollingInterval = setInterval(async () => {
+            if (this.connectionType !== 'walletconnect') {
+                clearInterval(this.wcPollingInterval);
+                return;
+            }
+
+            const currentAddress = modal.getAddress();
+            const currentChainId = modal.getChainId();
+
+            // 연결 해제 감지
+            if (!currentAddress && lastAddress) {
+                clearInterval(this.wcPollingInterval);
+                this.disconnectWallet();
+                return;
+            }
+
+            // 계정 변경 감지
+            if (currentAddress && currentAddress.toLowerCase() !== lastAddress?.toLowerCase()) {
+                lastAddress = currentAddress;
+                this.account = currentAddress;
+                this.provider = new ethers.BrowserProvider(modal.getWalletProvider());
+                this.accountAddress.textContent = this.account;
+                await this.initContract();
+                await this.updateCurrentNetwork();
+                return;
+            }
+
+            // 체인 변경 감지
+            if (currentChainId && currentChainId !== lastChainId) {
+                lastChainId = currentChainId;
+                this.provider = new ethers.BrowserProvider(modal.getWalletProvider());
+                await this.initContract();
+                await this.updateCurrentNetwork();
+            }
+        }, 1000); // 1초마다 체크
+    }
+
     async disconnectWallet() {
+        const wasWalletConnect = this.connectionType === 'walletconnect';
+
+        // WalletConnect 폴링 중지
+        if (this.wcPollingInterval) {
+            clearInterval(this.wcPollingInterval);
+            this.wcPollingInterval = null;
+        }
+
         this.account = null;
+        this.connectionType = null;
+        this.provider = null;
         this.accountAddress.textContent = '';
         this.walletInfo.classList.add('hidden');
         this.connectButton.classList.remove('hidden');
@@ -354,7 +422,9 @@ class WalletConnector {
         this.accountRoleInfo.style.display = 'none';
         this.pendingWithdrawStatus.style.display = 'none';
 
-        await modal.disconnect();
+        if (wasWalletConnect) {
+            await modal.disconnect();
+        }
 
         this.addLog('Wallet disconnected');
     }
@@ -362,11 +432,9 @@ class WalletConnector {
     getExplorerUrl(hash) {
         let chainId;
 
-        if (this.flag) {
-            // WalletConnect
+        if (this.connectionType === 'walletconnect') {
             chainId = modal.getChainId();
-        } else if (window.ethereum) {
-            // MetaMask
+        } else if (this.connectionType === 'metamask' && window.ethereum) {
             chainId = window.ethereum.chainId;
         } else {
             return null;
@@ -866,6 +934,14 @@ class WalletConnector {
     }
 
     async addNetwork() {
+        if (this.connectionType === 'walletconnect') {
+            alert('WalletConnect 사용 시 지갑 앱에서 직접 네트워크를 추가해주세요.');
+            return;
+        }
+        if (!window.ethereum) {
+            alert('MetaMask가 설치되어 있지 않습니다.');
+            return;
+        }
         try {
             await window.ethereum.request({
                 method: 'wallet_addEthereumChain',
@@ -879,6 +955,14 @@ class WalletConnector {
     }
 
     async switchNetwork() {
+        if (this.connectionType === 'walletconnect') {
+            alert('WalletConnect 사용 시 지갑 앱에서 직접 네트워크를 변경해주세요.');
+            return;
+        }
+        if (!window.ethereum) {
+            alert('MetaMask가 설치되어 있지 않습니다.');
+            return;
+        }
         try {
             await window.ethereum.request({
                 method: 'wallet_switchEthereumChain',
@@ -892,6 +976,14 @@ class WalletConnector {
     }
 
     async addMainnet() {
+        if (this.connectionType === 'walletconnect') {
+            alert('WalletConnect 사용 시 지갑 앱에서 직접 네트워크를 추가해주세요.');
+            return;
+        }
+        if (!window.ethereum) {
+            alert('MetaMask가 설치되어 있지 않습니다.');
+            return;
+        }
         try {
             await window.ethereum.request({
                 method: 'wallet_addEthereumChain',
@@ -905,6 +997,14 @@ class WalletConnector {
     }
 
     async switchMainnet() {
+        if (this.connectionType === 'walletconnect') {
+            alert('WalletConnect 사용 시 지갑 앱에서 직접 네트워크를 변경해주세요.');
+            return;
+        }
+        if (!window.ethereum) {
+            alert('MetaMask가 설치되어 있지 않습니다.');
+            return;
+        }
         try {
             await window.ethereum.request({
                 method: 'wallet_switchEthereumChain',
@@ -918,15 +1018,21 @@ class WalletConnector {
     }
 
     async updateCurrentNetwork() {
-        if (this.provider) {
-            try {
-                let chainId;
+        if (!this.provider || !this.connectionType) {
+            this.networkName.textContent = 'Not connected';
+            return;
+        }
 
-                if (this.flag) {
-                    chainId = modal.getChainId();
-                } else {
-                    chainId = await window.ethereum.request({ method: 'eth_chainId' });
-                }
+        try {
+            let chainId;
+
+            if (this.connectionType === 'walletconnect') {
+                chainId = modal.getChainId();
+            } else if (this.connectionType === 'metamask') {
+                chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            } else {
+                return;
+            }
 
                 let networkDisplayName;
                 if (chainId === '0xbfc' || chainId === 3068) {
@@ -1083,18 +1189,15 @@ class WalletConnector {
                     } catch (error) {
                         console.error('Failed to check candidate state:', error);
                     }
-                } else {
-                    this.validationStatus.textContent = '[Not on Bifrost]';
-                    this.validationStatus.classList.remove('valid');
-                    this.validationStatus.classList.add('invalid');
-                    this.validationStatus.style.display = 'inline';
-                }
-            } catch (error) {
-                console.error('Failed to get network information:', error);
-                this.networkName.textContent = 'No network information';
+            } else {
+                this.validationStatus.textContent = '[Not on Bifrost]';
+                this.validationStatus.classList.remove('valid');
+                this.validationStatus.classList.add('invalid');
+                this.validationStatus.style.display = 'inline';
             }
-        } else {
-            this.networkName.textContent = 'MetaMask not connected';
+        } catch (error) {
+            console.error('Failed to get network information:', error);
+            this.networkName.textContent = 'No network information';
         }
     }
 }
