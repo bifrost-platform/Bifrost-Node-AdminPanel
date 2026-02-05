@@ -187,6 +187,7 @@ class WalletConnector {
                 this.updateCurrentNetwork();
             });
         }
+
     }
 
     setupEventListeners() {
@@ -292,24 +293,6 @@ class WalletConnector {
             this.flag = true;
 
             await this.updateCurrentNetwork();
-
-            // WalletConnect 계정/체인 변경 리스너
-            modal.subscribeProvider(async ({ address, chainId }) => {
-                if (!address) {
-                    // 연결 해제됨
-                    this.disconnectWallet();
-                } else if (address.toLowerCase() !== this.account?.toLowerCase()) {
-                    // 계정 변경됨
-                    this.account = address;
-                    this.provider = new ethers.BrowserProvider(modal.getWalletProvider());
-                    this.accountAddress.textContent = this.account;
-                    await this.updateCurrentNetwork();
-                } else if (chainId) {
-                    // 체인 변경됨
-                    await this.initContract();
-                    await this.updateCurrentNetwork();
-                }
-            });
 
         } catch (error) {
             console.error('WalletConnect 연결 실패:', error);
