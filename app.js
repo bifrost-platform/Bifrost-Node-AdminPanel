@@ -138,6 +138,26 @@ class WalletConnector {
         this.currentVotingPower = document.getElementById('currentVotingPower');
         this.currentTier = document.getElementById('currentTier');
 
+        // Withdraw section elements
+        this.scheduleFullWithdrawButton = document.getElementById('scheduleFullWithdrawButton');
+        this.executeFullWithdrawButton = document.getElementById('executeFullWithdrawButton');
+        this.partialWithdrawAmount = document.getElementById('partialWithdrawAmount');
+        this.schedulePartialWithdrawButton = document.getElementById('schedulePartialWithdrawButton');
+        this.executePartialWithdrawButton = document.getElementById('executePartialWithdrawButton');
+        this.accountRoleInfo = document.getElementById('accountRoleInfo');
+        this.accountType = document.getElementById('accountType');
+        this.pairStashAddress = document.getElementById('pairStashAddress');
+        this.pairControllerAddress = document.getElementById('pairControllerAddress');
+        this.pendingWithdrawStatus = document.getElementById('pendingWithdrawStatus');
+        this.pendingWithdrawDetails = document.getElementById('pendingWithdrawDetails');
+
+        // Store candidate info globally
+        this.nominationCount = 0;
+        this.stashAddress = null;
+        this.controllerAddress = null;
+        this.isStash = false;
+        this.isController = false;
+
         await this.checkMetaMaskInstallation();
         
         if (this.connectButton) {
@@ -180,6 +200,12 @@ class WalletConnector {
         this.tierRadios.forEach(radio => {
             radio.addEventListener('change', (e) => this.handleTierChange(e.target.value));
         });
+
+        // Withdraw section event listeners
+        this.scheduleFullWithdrawButton.addEventListener('click', () => this.handleScheduleFullWithdraw());
+        this.executeFullWithdrawButton.addEventListener('click', () => this.handleExecuteFullWithdraw());
+        this.schedulePartialWithdrawButton.addEventListener('click', () => this.handleSchedulePartialWithdraw());
+        this.executePartialWithdrawButton.addEventListener('click', () => this.handleExecutePartialWithdraw());
     }
 
     async initContract() {
@@ -249,7 +275,7 @@ class WalletConnector {
         try {
             // WalletConnect 모달 열기
             await modal.open();
-            
+
             // 연결될 때까지 대기
             while (!modal.getAddress()) {
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -264,8 +290,26 @@ class WalletConnector {
             this.walletInfo.classList.remove('hidden');
             this.connectButton.classList.add('hidden');
             this.flag = true;
-            
+
             await this.updateCurrentNetwork();
+
+            // WalletConnect 계정/체인 변경 리스너
+            modal.subscribeProvider(async ({ address, chainId }) => {
+                if (!address) {
+                    // 연결 해제됨
+                    this.disconnectWallet();
+                } else if (address.toLowerCase() !== this.account?.toLowerCase()) {
+                    // 계정 변경됨
+                    this.account = address;
+                    this.provider = new ethers.BrowserProvider(modal.getWalletProvider());
+                    this.accountAddress.textContent = this.account;
+                    await this.updateCurrentNetwork();
+                } else if (chainId) {
+                    // 체인 변경됨
+                    await this.initContract();
+                    await this.updateCurrentNetwork();
+                }
+            });
 
         } catch (error) {
             console.error('WalletConnect 연결 실패:', error);
@@ -305,23 +349,49 @@ class WalletConnector {
         this.tierRelayerAddress.disabled = true;
         this.setTierButton.disabled = true;
 
+        // Reset withdraw section
+        this.partialWithdrawAmount.value = '';
+        this.partialWithdrawAmount.disabled = true;
+        this.scheduleFullWithdrawButton.disabled = true;
+        this.executeFullWithdrawButton.disabled = true;
+        this.schedulePartialWithdrawButton.disabled = true;
+        this.executePartialWithdrawButton.disabled = true;
+        this.nominationCount = 0;
+        this.stashAddress = null;
+        this.controllerAddress = null;
+        this.isStash = false;
+        this.isController = false;
+        this.accountRoleInfo.style.display = 'none';
+        this.pendingWithdrawStatus.style.display = 'none';
+
         await modal.disconnect();
 
         this.addLog('Wallet disconnected');
     }
 
     getExplorerUrl(hash) {
-        const chainId = window.ethereum.chainId;
+        let chainId;
+
+        if (this.flag) {
+            // WalletConnect
+            chainId = modal.getChainId();
+        } else if (window.ethereum) {
+            // MetaMask
+            chainId = window.ethereum.chainId;
+        } else {
+            return null;
+        }
+
         let baseUrl;
-        
-        if (chainId === '0xbfc') {
+
+        if (chainId === '0xbfc' || chainId === 3068) {
             baseUrl = 'https://explorer.mainnet.bifrostnetwork.com/tx/';
-        } else if (chainId === '0xbfc0') {
+        } else if (chainId === '0xbfc0' || chainId === 49088) {
             baseUrl = 'https://explorer.testnet.bifrostnetwork.com/tx/';
         } else {
             return null;
         }
-        
+
         return baseUrl + hash;
     }
 
@@ -546,6 +616,207 @@ class WalletConnector {
         }
     }
 
+    async checkPendingWithdrawals(states, index) {
+        try {
+            let hasPartialRequest = false;
+            let hasFullRequest = false;
+            let detailsHtml = '';
+
+            // Get current round info
+            const roundInfo = await contract.round_info();
+            const currentRound = Number(roundInfo.current_round_index);
+
+            // Check for partial withdrawal request using candidate_request (requires controller address)
+            const partialRequest = await contract.candidate_request(this.controllerAddress);
+            const partialAmount = Number(partialRequest.amount);
+            const partialWhenExecutable = Number(partialRequest.when_executable);
+
+            if (partialAmount > 0 && partialWhenExecutable > 0) {
+                hasPartialRequest = true;
+                const formattedAmount = ethers.formatEther(partialRequest.amount);
+                const roundsRemaining = partialWhenExecutable - currentRound;
+                const timeInfo = this.calculateTimeRemaining(roundsRemaining);
+
+                detailsHtml += `<div style="margin-bottom: 8px;">
+                    <strong style="color: var(--text-primary);">Partial Withdrawal:</strong><br>
+                    Amount: <span style="color: var(--primary-color);">${formattedAmount} BFC</span><br>
+                    Executable at Round: ${partialWhenExecutable} (Current: ${currentRound})<br>
+                    ${roundsRemaining > 0 ?
+                        `<span style="color: var(--error-color);">${timeInfo}</span>` :
+                        `<span style="color: var(--success-color);">Ready to execute!</span>`}
+                </div>`;
+            }
+
+            // Check for full withdrawal request using is_selected from states
+            // states[12] is is_selected (stored as round index when > 2)
+            const isSelectedValue = Number(states[12][index]);
+
+            if (isSelectedValue > 2) {
+                hasFullRequest = true;
+                const bondAmount = ethers.formatEther(states[2][index]);
+                const roundsRemaining = isSelectedValue - currentRound;
+                const timeInfo = this.calculateTimeRemaining(roundsRemaining);
+
+                detailsHtml += `<div>
+                    <strong style="color: var(--text-primary);">Full Withdrawal (Leave Candidates):</strong><br>
+                    Amount: <span style="color: var(--error-color);">${bondAmount} BFC</span><br>
+                    Executable at Round: ${isSelectedValue} (Current: ${currentRound})<br>
+                    ${roundsRemaining > 0 ?
+                        `<span style="color: var(--error-color);">${timeInfo}</span>` :
+                        `<span style="color: var(--success-color);">Ready to execute!</span>`}
+                </div>`;
+            }
+
+            if (hasPartialRequest || hasFullRequest) {
+                this.pendingWithdrawDetails.innerHTML = detailsHtml;
+                this.pendingWithdrawStatus.style.display = 'block';
+            } else {
+                this.pendingWithdrawStatus.style.display = 'none';
+            }
+
+        } catch (error) {
+            console.error('Failed to check pending withdrawals:', error);
+            this.pendingWithdrawStatus.style.display = 'none';
+        }
+    }
+
+    calculateTimeRemaining(roundsRemaining) {
+        if (roundsRemaining <= 0) {
+            return 'Ready to execute';
+        }
+
+        // 1 round = 720 minutes = 12 hours
+        const totalMinutes = roundsRemaining * 720;
+        const days = Math.floor(totalMinutes / (60 * 24));
+        const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+        const minutes = totalMinutes % 60;
+
+        let timeStr = '';
+        if (days > 0) timeStr += `${days}d `;
+        if (hours > 0) timeStr += `${hours}h `;
+        if (minutes > 0 && days === 0) timeStr += `${minutes}m`;
+
+        return `~${timeStr.trim()} remaining (${roundsRemaining} rounds)`;
+    }
+
+    async handleScheduleFullWithdraw() {
+        try {
+            if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
+                await this.initContract();
+            }
+
+            const tx = await contract.schedule_leave_candidates(100);
+
+            this.addLog('Schedule full withdraw transaction sent:', false, tx.hash);
+
+            this.scheduleFullWithdrawButton.disabled = true;
+
+            await tx.wait();
+            this.addLog('Schedule full withdraw confirmed! Execute after ~7 days.');
+
+            this.scheduleFullWithdrawButton.disabled = false;
+
+        } catch (error) {
+            console.error('Schedule full withdraw failed:', error);
+            this.addLog('Schedule full withdraw failed: ' + error.message, true);
+            this.scheduleFullWithdrawButton.disabled = false;
+        }
+    }
+
+    async handleExecuteFullWithdraw() {
+        try {
+            if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
+                await this.initContract();
+            }
+
+            // Get fresh nomination count from candidate_states
+            const states = await contract.candidate_states(0);
+            const stashes = states[1].map(addr => addr.toLowerCase());
+            const index = stashes.indexOf(this.account.toLowerCase());
+
+            if (index === -1) {
+                alert('You are not a candidate. Execute must be called from Stash account.');
+                return;
+            }
+
+            // states[4] is nomination_count
+            const nominationCount = Number(states[4][index]);
+
+            const tx = await contract.execute_leave_candidates(nominationCount);
+
+            this.addLog('Execute full withdraw transaction sent:', false, tx.hash);
+
+            this.executeFullWithdrawButton.disabled = true;
+
+            await tx.wait();
+            this.addLog('Execute full withdraw confirmed! Funds withdrawn.');
+
+            await this.updateCurrentNetwork();
+
+        } catch (error) {
+            console.error('Execute full withdraw failed:', error);
+            this.addLog('Execute full withdraw failed: ' + error.message, true);
+            this.executeFullWithdrawButton.disabled = false;
+        }
+    }
+
+    async handleSchedulePartialWithdraw() {
+        try {
+            const amount = this.partialWithdrawAmount.value;
+
+            if (!amount || parseFloat(amount) <= 0) {
+                alert('Please enter a valid amount.');
+                return;
+            }
+
+            if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
+                await this.initContract();
+            }
+
+            const amountInWei = ethers.parseEther(amount.toString());
+
+            const tx = await contract.schedule_candidate_bond_less(amountInWei);
+
+            this.addLog('Schedule partial withdraw transaction sent:', false, tx.hash);
+
+            this.schedulePartialWithdrawButton.disabled = true;
+
+            await tx.wait();
+            this.addLog(`Schedule partial withdraw of ${amount} BFC confirmed! Execute after ~7 days.`);
+
+            this.schedulePartialWithdrawButton.disabled = false;
+
+        } catch (error) {
+            console.error('Schedule partial withdraw failed:', error);
+            this.addLog('Schedule partial withdraw failed: ' + error.message, true);
+            this.schedulePartialWithdrawButton.disabled = false;
+        }
+    }
+
+    async handleExecutePartialWithdraw() {
+        try {
+            if (!contract || contract.runner.address.toLowerCase() !== this.account.toLowerCase()) {
+                await this.initContract();
+            }
+
+            const tx = await contract.execute_candidate_bond_less();
+
+            this.addLog('Execute partial withdraw transaction sent:', false, tx.hash);
+
+            this.executePartialWithdrawButton.disabled = true;
+
+            await tx.wait();
+            this.addLog('Execute partial withdraw confirmed! Funds withdrawn.');
+
+            await this.updateCurrentNetwork();
+
+        } catch (error) {
+            console.error('Execute partial withdraw failed:', error);
+            this.addLog('Execute partial withdraw failed: ' + error.message, true);
+            this.executePartialWithdrawButton.disabled = false;
+        }
+    }
+
     async addNetwork() {
         try {
             await window.ethereum.request({
@@ -637,12 +908,31 @@ class WalletConnector {
                     await this.updateTierInfo();
 
                     try {
-                        // Get all candidates and check if connected address is a stash
+                        // Get all candidates and check if connected address is a stash or controller
                         const states = await contract.candidate_states(0);
+                        const controllers = states[0].map(addr => addr.toLowerCase());
                         const stashes = states[1].map(addr => addr.toLowerCase());
 
-                        // Find index of connected account in stash array
-                        const index = stashes.indexOf(this.account.toLowerCase());
+                        // Check if connected account is in stash or controller array
+                        const stashIndex = stashes.indexOf(this.account.toLowerCase());
+                        const controllerIndex = controllers.indexOf(this.account.toLowerCase());
+
+                        let index = -1;
+                        this.isStash = false;
+                        this.isController = false;
+
+                        if (stashIndex !== -1) {
+                            index = stashIndex;
+                            this.isStash = true;
+                            this.stashAddress = this.account;
+                            this.controllerAddress = states[0][index];
+                        } else if (controllerIndex !== -1) {
+                            index = controllerIndex;
+                            this.isController = true;
+                            this.controllerAddress = this.account;
+                            this.stashAddress = states[1][index];
+                        }
+
                         const isValid = index !== -1;
 
                         if (isValid) {
@@ -670,13 +960,28 @@ class WalletConnector {
                             this.currentVotingPower.textContent = formattedVP;
                             this.currentTier.textContent = tierText;
                             this.currentTierStatus.style.display = 'block';
+
+                            // Update account role info
+                            this.accountType.textContent = this.isStash ? 'Stash' : 'Controller';
+                            this.accountType.style.color = this.isStash ? 'var(--success-color)' : 'var(--primary-color)';
+                            this.pairStashAddress.textContent = this.stashAddress ?
+                                `${this.stashAddress.slice(0, 6)}...${this.stashAddress.slice(-4)}` : '-';
+                            this.pairControllerAddress.textContent = this.controllerAddress ?
+                                `${this.controllerAddress.slice(0, 6)}...${this.controllerAddress.slice(-4)}` : '-';
+                            this.accountRoleInfo.style.display = 'block';
+
+                            // Check for pending withdrawal requests
+                            await this.checkPendingWithdrawals(states, index);
+
                         } else {
                             this.validationStatus.textContent = '[Not a Candidate]';
                             this.validationStatus.classList.remove('valid');
                             this.validationStatus.classList.add('invalid');
 
-                            // Hide current tier status
+                            // Hide current tier status and account role info
                             this.currentTierStatus.style.display = 'none';
+                            this.accountRoleInfo.style.display = 'none';
+                            this.pendingWithdrawStatus.style.display = 'none';
                         }
                         this.validationStatus.style.display = 'inline';
 
@@ -694,6 +999,16 @@ class WalletConnector {
                             // Initialize tier fields based on current tier selection
                             const selectedTier = document.querySelector('input[name="tierSelect"]:checked').value;
                             this.handleTierChange(selectedTier);
+
+                            // Enable withdraw section for candidates
+                            this.scheduleFullWithdrawButton.disabled = false;
+                            this.executeFullWithdrawButton.disabled = false;
+                            this.partialWithdrawAmount.disabled = false;
+                            this.schedulePartialWithdrawButton.disabled = false;
+                            this.executePartialWithdrawButton.disabled = false;
+
+                            // Store nomination count for later use (states[4] is nomination_count)
+                            this.nominationCount = Number(states[4][index]);
                         } else {
                             // Disable additional features for non-candidates
                             this.additionalAmount.disabled = true;
@@ -701,6 +1016,16 @@ class WalletConnector {
                             this.tierMoreAmount.disabled = true;
                             this.tierRelayerAddress.disabled = true;
                             this.setTierButton.disabled = true;
+
+                            // Disable withdraw section for non-candidates
+                            this.scheduleFullWithdrawButton.disabled = true;
+                            this.executeFullWithdrawButton.disabled = true;
+                            this.partialWithdrawAmount.disabled = true;
+                            this.schedulePartialWithdrawButton.disabled = true;
+                            this.executePartialWithdrawButton.disabled = true;
+                            this.nominationCount = 0;
+                            this.stashAddress = null;
+                            this.controllerAddress = null;
                         }
 
 

@@ -135,7 +135,7 @@
             box-shadow: 0 0 12px var(--error-color);
         }
 
-        #walletSection, #bondingSection, #bondMoreSection, #setValidatorTierSection, #currentNetwork {
+        #walletSection, #bondingSection, #bondMoreSection, #setValidatorTierSection, #withdrawSection, #currentNetwork {
             background-color: var(--card-bg);
             padding: 24px;
             border-radius: 16px;
@@ -398,6 +398,66 @@
                 <div style="margin-top: 8px;">Relayer Address</div>
                 <input type="string" id="tierRelayerAddress" disabled style="margin: 4px 0;">
                 <button id="setTierButton" disabled style="margin-top: 12px; display: inline-block;">Set Tier</button>
+            </div>
+
+            <div id="withdrawSection">
+                <h3>Withdraw</h3>
+
+                <!-- Account Role Info -->
+                <div id="accountRoleInfo" style="padding: 12px; background-color: rgba(99, 102, 241, 0.1); border-radius: 8px; margin-bottom: 16px; font-size: 13px; display: none;">
+                    <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                        <span>Account Type: <strong id="accountType" style="color: var(--primary-color);">-</strong></span>
+                        <span>Stash: <strong id="pairStashAddress" style="font-family: monospace; font-size: 11px;">-</strong></span>
+                        <span>Controller: <strong id="pairControllerAddress" style="font-family: monospace; font-size: 11px;">-</strong></span>
+                    </div>
+                </div>
+
+                <!-- Role Explanation -->
+                <div style="background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                    <div style="font-weight: 600; font-size: 13px; color: var(--error-color); margin-bottom: 8px;">Important: Account Roles</div>
+                    <ul style="color: var(--text-secondary); font-size: 12px; margin: 0; padding-left: 20px; line-height: 1.8;">
+                        <li><strong>Schedule (Request)</strong>: Must be done with <span style="color: var(--primary-color);">Controller</span> account</li>
+                        <li><strong>Execute (Withdraw)</strong>: Must be done with <span style="color: var(--success-color);">Stash</span> account</li>
+                    </ul>
+                </div>
+
+                <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px;">
+                    Withdrawal requires 2 steps: Schedule (request) → Execute (after ~7 days)
+                </p>
+
+                <!-- Pending Withdrawal Status -->
+                <div id="pendingWithdrawStatus" style="display: none; padding: 16px; background-color: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px; margin-bottom: 16px;">
+                    <div style="font-weight: 600; font-size: 14px; color: var(--success-color); margin-bottom: 12px;">Pending Withdrawal Request</div>
+                    <div id="pendingWithdrawDetails" style="font-size: 13px; color: var(--text-secondary);"></div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- Full Withdraw -->
+                    <div style="padding: 16px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <div style="font-weight: 600; font-size: 15px; margin-bottom: 12px; color: var(--error-color);">Full Withdraw</div>
+                        <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 12px;">
+                            Withdraw all staked BFC and leave candidates
+                        </p>
+                        <div style="display: flex; gap: 8px;">
+                            <button id="scheduleFullWithdrawButton" disabled style="flex: 1; font-size: 12px; padding: 10px;">Schedule</button>
+                            <button id="executeFullWithdrawButton" disabled style="flex: 1; font-size: 12px; padding: 10px;">Execute</button>
+                        </div>
+                    </div>
+
+                    <!-- Partial Withdraw -->
+                    <div style="padding: 16px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <div style="font-weight: 600; font-size: 15px; margin-bottom: 12px;">Partial Withdraw</div>
+                        <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 12px;">
+                            Withdraw a portion of staked BFC
+                        </p>
+                        <div style="margin-bottom: 12px;">Amount (Unit: BFC)</div>
+                        <input type="number" id="partialWithdrawAmount" disabled placeholder="Enter amount to withdraw" style="margin-bottom: 12px;">
+                        <div style="display: flex; gap: 8px;">
+                            <button id="schedulePartialWithdrawButton" disabled style="flex: 1; font-size: 12px; padding: 10px;">Schedule</button>
+                            <button id="executePartialWithdrawButton" disabled style="flex: 1; font-size: 12px; padding: 10px;">Execute</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
