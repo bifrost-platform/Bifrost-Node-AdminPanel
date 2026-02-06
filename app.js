@@ -708,20 +708,20 @@ class WalletConnector {
                 </div>`;
             }
 
-            // Check for full withdrawal request using is_selected from states
-            // states[12] is is_selected (stored as round index when > 2)
-            const isSelectedValue = Number(states[12][index]);
+            // Check for full withdrawal request using status from states
+            // states[11] is status (stored as when_executable round index when > 2, meaning leave scheduled)
+            const statusValue = Number(states[11][index]);
 
-            if (isSelectedValue > 2) {
+            if (statusValue > 2) {
                 hasFullRequest = true;
                 const bondAmount = ethers.formatEther(states[2][index]);
-                const roundsRemaining = isSelectedValue - currentRound;
+                const roundsRemaining = statusValue - currentRound;
                 const timeInfo = this.calculateTimeRemaining(roundsRemaining);
 
                 detailsHtml += `<div>
                     <strong style="color: var(--text-primary);">Full Withdrawal (Leave Candidates):</strong><br>
                     Amount: <span style="color: var(--error-color);">${bondAmount} BFC</span><br>
-                    Executable at Round: ${isSelectedValue} (Current: ${currentRound})<br>
+                    Executable at Round: ${statusValue} (Current: ${currentRound})<br>
                     ${roundsRemaining > 0 ?
                         `<span style="color: var(--error-color);">${timeInfo}</span>` :
                         `<span style="color: var(--success-color);">Ready to execute!</span>`}
@@ -738,6 +738,21 @@ class WalletConnector {
             // Enable/disable cancel buttons based on pending requests
             this.cancelFullWithdrawButton.disabled = !hasFullRequest;
             this.cancelPartialWithdrawButton.disabled = !hasPartialRequest;
+
+            // Enable/disable execute buttons based on pending requests and executable status
+            if (hasFullRequest) {
+                const fullRoundsRemaining = statusValue - currentRound;
+                this.executeFullWithdrawButton.disabled = fullRoundsRemaining > 0;
+            } else {
+                this.executeFullWithdrawButton.disabled = true;
+            }
+
+            if (hasPartialRequest) {
+                const partialRoundsRemaining = partialWhenExecutable - currentRound;
+                this.executePartialWithdrawButton.disabled = partialRoundsRemaining > 0;
+            } else {
+                this.executePartialWithdrawButton.disabled = true;
+            }
 
         } catch (error) {
             console.error('Failed to check pending withdrawals:', error);
@@ -781,6 +796,9 @@ class WalletConnector {
             await tx.wait();
             this.addLog('Schedule full withdraw confirmed! Execute after ~7 days.');
 
+            // Wait a moment for RPC node to reflect the new state
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
             this.scheduleFullWithdrawButton.disabled = false;
             await this.updateCurrentNetwork();
 
@@ -805,6 +823,9 @@ class WalletConnector {
 
             await tx.wait();
             this.addLog('Cancel full withdraw confirmed!');
+
+            // Wait a moment for RPC node to reflect the new state
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             this.cancelFullWithdrawButton.disabled = false;
             await this.updateCurrentNetwork();
@@ -844,6 +865,9 @@ class WalletConnector {
             await tx.wait();
             this.addLog('Execute full withdraw confirmed! Funds withdrawn.');
 
+            // Wait a moment for RPC node to reflect the new state
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
             await this.updateCurrentNetwork();
 
         } catch (error) {
@@ -877,6 +901,9 @@ class WalletConnector {
             await tx.wait();
             this.addLog(`Schedule partial withdraw of ${amount} BFC confirmed! Execute after ~7 days.`);
 
+            // Wait a moment for RPC node to reflect the new state
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
             this.schedulePartialWithdrawButton.disabled = false;
             await this.updateCurrentNetwork();
 
@@ -902,6 +929,9 @@ class WalletConnector {
             await tx.wait();
             this.addLog('Cancel partial withdraw confirmed!');
 
+            // Wait a moment for RPC node to reflect the new state
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
             this.cancelPartialWithdrawButton.disabled = false;
             await this.updateCurrentNetwork();
 
@@ -926,6 +956,9 @@ class WalletConnector {
 
             await tx.wait();
             this.addLog('Execute partial withdraw confirmed! Funds withdrawn.');
+
+            // Wait a moment for RPC node to reflect the new state
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             await this.updateCurrentNetwork();
 
@@ -1158,12 +1191,14 @@ class WalletConnector {
                             this.handleTierChange(selectedTier);
 
                             // Enable withdraw section for candidates
-                            // Cancel buttons are enabled by checkPendingWithdrawals based on pending requests
+                            // Schedule buttons always enabled for candidates
+                            // Execute and Cancel buttons are controlled by checkPendingWithdrawals based on pending requests
                             this.scheduleFullWithdrawButton.disabled = false;
-                            this.executeFullWithdrawButton.disabled = false;
                             this.partialWithdrawAmount.disabled = false;
                             this.schedulePartialWithdrawButton.disabled = false;
-                            this.executePartialWithdrawButton.disabled = false;
+                            // Execute buttons default to disabled, will be enabled by checkPendingWithdrawals if applicable
+                            this.executeFullWithdrawButton.disabled = true;
+                            this.executePartialWithdrawButton.disabled = true;
 
                             // Store nomination count for later use (states[4] is nomination_count)
                             this.nominationCount = Number(states[4][index]);
