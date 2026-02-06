@@ -1160,9 +1160,6 @@ class WalletConnector {
                                 `${this.controllerAddress.slice(0, 6)}...${this.controllerAddress.slice(-4)}` : '-';
                             this.accountRoleInfo.style.display = 'block';
 
-                            // Check for pending withdrawal requests
-                            await this.checkPendingWithdrawals(states, index);
-
                         } else {
                             this.validationStatus.textContent = '[Not a Candidate]';
                             this.validationStatus.classList.remove('valid');
@@ -1192,13 +1189,16 @@ class WalletConnector {
 
                             // Enable withdraw section for candidates
                             // Schedule buttons always enabled for candidates
-                            // Execute and Cancel buttons are controlled by checkPendingWithdrawals based on pending requests
                             this.scheduleFullWithdrawButton.disabled = false;
                             this.partialWithdrawAmount.disabled = false;
                             this.schedulePartialWithdrawButton.disabled = false;
                             // Execute buttons default to disabled, will be enabled by checkPendingWithdrawals if applicable
                             this.executeFullWithdrawButton.disabled = true;
                             this.executePartialWithdrawButton.disabled = true;
+
+                            // Check pending withdrawals AFTER setting defaults
+                            // This ensures checkPendingWithdrawals can properly enable execute buttons
+                            await this.checkPendingWithdrawals(states, index);
 
                             // Store nomination count for later use (states[4] is nomination_count)
                             this.nominationCount = Number(states[4][index]);
