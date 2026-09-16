@@ -11,8 +11,11 @@ module.exports = {
     devServer: {
         static: {
             directory: path.join(__dirname, './'),
+            watch: {
+                ignored: ['**/node_modules/**', '**/.git/**']
+            }
         },
         port: 3000,
         hot: true
     }
-}; 
+};
